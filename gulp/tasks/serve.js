@@ -1,20 +1,23 @@
 'use strict';
 
-const config = require('../config/config');
-
-const connect = require('gulp-connect');
-
-module.exports = gulp => {
-  let serveTask = function() {
-    connect.server(
-      {
-        root: config.paths.dist.root, port: config.localServer.port,
-        livereload: false
+let serveTask = function(gulp, config, plugins, wrapFunc) {
+  let func = wrapFunc(function(success, error) {
+    try {
+      plugins.connect.server({
+        root: config.paths.dist.root,
+        port: config.localServer.port,
+        livereload: true
       });
-  };
+    } catch (e) {
+      error(e);
+    }
+    success();
+  });
 
-  serveTask.displayName = 'Starting live reload webserver';
-  serveTask.description = 'Starting live reload webserver';
+  func.displayName = 'Starting live reload webserver';
+  func.description = 'Starting live reload webserver';
 
-  gulp.task('serve', serveTask);
+  return func;
 };
+
+module.exports = serveTask;

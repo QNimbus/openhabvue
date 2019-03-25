@@ -1,18 +1,19 @@
 'use strict';
 
-const config = require('../config/config');
-const htmlPartial = require('gulp-html-partial');
+let copyTask = function(gulp, config, plugins, wrapFunc) {
+  let func = wrapFunc(function(success, error) {
+    gulp
+      .src(`${config.paths.html.root}/${config.paths.html.glob}`)
+      .pipe(plugins.htmlPartial({ basePath: `${config.paths.partials.root}/` }))
+      .pipe(gulp.dest(config.paths.dist.html))
+      .on('error', error)
+      .on('end', success);
+  });
 
-module.exports = gulp => {
-  let copyTask = function() {
-    return gulp
-      .src(config.paths.html + 'main.html')
-      .pipe(htmlPartial({ basePath: config.paths.partials }))
-      .pipe(gulp.dest(config.paths.dist.html));
-  };
+  func.displayName = 'Copying html files';
+  func.description = 'Copying html files';
 
-  copyTask.displayName = 'Copying html files';
-  copyTask.description = 'Does something';
-
-  gulp.task('copy', copyTask);
+  return func;
 };
+
+module.exports = copyTask;

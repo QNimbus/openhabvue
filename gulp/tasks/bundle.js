@@ -1,37 +1,31 @@
 'use strict';
 
-const config = require('../config/config');
-
-const rename = require('gulp-rename');
-
-const rollup = require('gulp-better-rollup');
-const rollupEach = require('gulp-rollup-each');
 const rollupPluginNodeModuleResolve = require('rollup-plugin-node-resolve');
 const rollupPluginReplace = require('rollup-plugin-replace');
 
-module.exports = gulp => {
-  let bundleTask = function() {
-    return gulp
+let bundleTask = function(gulp, config, plugins, wrapFunc) {
+  let func = wrapFunc(function(success, error) {
+    gulp
       .src(config.paths.js_modules)
       .pipe(
-        rollup(
+        plugins.betterRollup(
           {
             external: config.external_js,
             plugins: [
               rollupPluginNodeModuleResolve({
                 main: false,
                 browser: false,
-                modulesOnly: true,
+                modulesOnly: true
               }),
-              rollupPluginReplace({ 'process.env.NODE_ENV': '"development"' }),
-            ],
+              rollupPluginReplace({ 'process.env.NODE_ENV': '"development"' })
+            ]
           },
           { format: 'esm' },
-          require('rollup')
+          plugins.rollup
         )
       )
       .pipe(
-        rename(path => {
+        plugins.rename(path => {
           let modulename = null;
           // Input is: js/bundles/{bundle-name}/index.js. Output is: js/{bundle-name}.js
           if (path.basename === 'index') {
@@ -47,11 +41,15 @@ module.exports = gulp => {
           return path;
         })
       )
-      .pipe(gulp.dest(config.paths.dist.js));
-  };
+      .pipe(gulp.dest(config.paths.dist.js))
+      .on('error', error)
+      .on('end', success);
+  });
 
-  bundleTask.displayName = 'TODO';
-  bundleTask.description = 'TODO';
+  func.displayName = 'Bundle JS files';
+  func.description = 'Bundle JS files';
 
-  gulp.task('bundle', bundleTask);
+  return func;
 };
+
+module.exports = bundleTask;
