@@ -1,4 +1,23 @@
 /**
+ * TODO: Summary. (use period)
+ *
+ * TODO: Description. (use period)
+ *
+ * @link   https://github.com/QNimbus/openhabvue/blob/dev/src/js/storage/index.js
+ * @file   This files defines the MyClass class.
+ * @author B. van Wetten <bas.van.wetten@gmail.com>
+ * @since  27-03-2019
+ */
+
+/** jshint {inline configuration here} */
+
+// External imports
+import { defaultsDeep } from 'lodash-es';
+import { FetchException } from './customExceptions';
+
+const FETCH_TIMEOUT = 5000;
+
+/**
  * Helper function to check if an object is iterable
  *
  * e.g. if you can loop through it using for...in, for...of, forEach, etc
@@ -45,4 +64,40 @@ export function arrayToObject(array, keyField) {
     obj[item[keyField]] = item;
     return obj;
   }, {});
+}
+
+/**
+ *
+ *
+ * @export
+ * @param {*} url
+ * @returns
+ */
+export async function customFetch(input, init) {
+  const controller = new AbortController();
+  const headers = new Headers({ 'content-type': 'application/json' });
+
+  init = defaultsDeep(init, {
+    method: 'GET',
+    mode: 'cors',
+    headers: headers,
+    signal: controller.signal,
+    validateHttpsCertificates: false,
+    muteHttpExceptions: true,
+  });
+
+  setTimeout(() => {
+    controller.abort();
+  }, FETCH_TIMEOUT);
+
+  const response = await fetch(input, init).catch(error => {
+    console.error(`Fetch error: ${error.message}`);
+    throw error instanceof DOMException && error.name === 'AbortError' ? `Timeout after ${FETCH_TIMEOUT / 1000}s` : error;
+  });
+
+  if (!response.ok) {
+    throw new FetchException(response.statusText, response.status);
+  }
+
+  return response;
 }

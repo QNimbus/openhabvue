@@ -35,6 +35,7 @@
   },
   "scripts": {
     "build": "gulp build",
+    "clean": "gulp __clean",
     "dev": "gulp dev",
     "watchdev": "gulp watchdev",
     "test": "echo \"Error: no test specified\" && exit 1"

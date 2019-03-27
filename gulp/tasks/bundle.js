@@ -10,6 +10,7 @@ let bundleTask = function(gulp, config, plugins, wrapFunc) {
       .pipe(
         plugins.betterRollup(
           {
+            treeshake: true,
             external: config.external_js,
             plugins: [
               rollupPluginNodeModuleResolve({
