@@ -13,23 +13,9 @@
 
 // Local imports
 import { featureDetection_fetch, featureDetection_worker } from '../_helpers';
-import { StateWhileRevalidateStore } from '../storage';
+import { StorageConnector } from './store';
 
 featureDetection_fetch();
 featureDetection_worker();
 
-const ff = new StateWhileRevalidateStore();
-
-ff.connect('rancher.home.besqua.red', 18080);
-
-// const ff = new StateWhileRevalidateStore();
-// const jsonData = customFetch('http://rancher.home.besqua.red:18080/rest/items').then(jsonData => ff.initData('items', jsonData));
-
-// setTimeout(() => {
-//   const jsonData2 = customFetch('http://rancher.home.besqua.red:18080/rest/items').then(jsonData => ff.refreshData('items', jsonData));
-// }, 10000);
-
-// ff.addEventListener('storeItemChanged', event => {
-//   console.log(event);
-// });
-// // customFetch('http://rancher.home.besqua.red:18080/rest/items');
+const store = new StorageConnector();

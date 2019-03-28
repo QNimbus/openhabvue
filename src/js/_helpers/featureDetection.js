@@ -7,7 +7,7 @@ export function featureDetection_fetch() {
 }
 
 export function featureDetection_worker() {
-  if (!window.Worker) {
-    throw new NotSupportedException(`'window.worker' method is not supported in this browser`);
+  if (!window.Worker || !window.SharedWorker) {
+    throw new NotSupportedException(`'window.Worker' or 'window.SharedWorker' method(s) are not supported in this browser`);
   }
 }

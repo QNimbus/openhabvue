@@ -3,7 +3,7 @@
  *
  * TODO: Description. (use period)
  *
- * @link   https://github.com/QNimbus/openhabvue/blob/dev/src/js/storage/stateWhileRevalidate.js
+ * @link   https://github.com/QNimbus/openhabvue/blob/dev/src/js/storage/StaleWhileRevalidateStore.js
  * @file   This files defines the MyClass class.
  * @author B. van Wetten <bas.van.wetten@gmail.com>
  * @since  27-03-2019
@@ -23,10 +23,10 @@ import { dbVersion, dataStructures, dataStructuresObj } from './openHabStorageMo
  *
  *
  * @export
- * @class StateWhileRevalidateStore
+ * @class staleWhileRevalidateStore
  * @extends {EventTarget}
  */
-export class StateWhileRevalidateStore extends EventTarget {
+export class staleWhileRevalidateStore extends EventTarget {
   constructor(storeName = window.location.host) {
     super();
 
@@ -34,12 +34,25 @@ export class StateWhileRevalidateStore extends EventTarget {
     this.storeName = storeName;
   }
 
+  /**
+   *
+   *
+   * @memberof staleWhileRevalidateStore
+   */
   dispose() {
     if (this.db) {
       this.db.close();
     }
   }
 
+  /**
+   *
+   *
+   * @param {string} [host='localhost']
+   * @param {number} [port=8080]
+   * @returns
+   * @memberof staleWhileRevalidateStore
+   */
   async connect(host = 'localhost', port = 8080) {
     this.host = host;
     this.port = port;
@@ -94,27 +107,52 @@ export class StateWhileRevalidateStore extends EventTarget {
       .then(() => {
         this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: this.host }));
         this.connected = true;
+      })
+      .catch(error => {
+        this.connected = false;
+        this.dispatchEvent(new CustomEvent('connectionLost', { detail: { type: 404, message: error.toString() } }));
+        throw error;
       });
-    // .catch(e => {
-    //   this.connected = false;
-    //   const message = e.toString();
-    //   let type = 404;
-    //   if (message.includes('TypeError') && !message.includes('Failed to fetch')) {
-    //     type = 4041; // custom error code for Cross-orgin access
-    //   }
-    //   this.dispatchEvent(new CustomEvent('connectionLost', { detail: { type, message } }));
-    //   throw e;
-    // });
   }
 
+  /**
+   *
+   *
+   * @param {*} message
+   * @returns
+   * @memberof staleWhileRevalidateStore
+   */
   sseMessageReceived(message) {
     const data = JSON.parse(message.data);
-    const [_, storeName, itemName] = data.topic.split('/');
+    const [_, storeName, itemName, fieldName] = data.topic.split('/');
 
     // Validate received event message
     if (!data || !data.payload || !data.type || !data.topic) {
       console.warn(`SSE has unknown format: type: ${data.type}, topic: ${data.topic}, payload: ${data.payload}`);
       return;
+    }
+
+    switch (data.type) {
+      // Updates
+      case 'ItemUpdatedEvent': {
+        const [updatedItem, previousItem] = JSON.parse(data.payload);
+        this.insert(storeName, updatedItem);
+        break;
+      }
+      // State changed
+      case 'ItemStateEvent': {
+        const newState = JSON.parse(data.payload);
+        this.update(storeName, itemName, fieldName, newState.value);
+        break;
+      }
+      // Ignored events
+      case 'ItemStateChangedEvent':
+      case 'ItemStatePredictedEvent':
+      case 'ItemCommandEvent':
+      default: {
+        // console.log(`Ignored: ${JSON.stringify(data.type)}`);
+        return;
+      }
     }
   }
 
@@ -127,29 +165,26 @@ export class StateWhileRevalidateStore extends EventTarget {
    *
    * @param {*} storeName
    * @param {*} jsonData
-   * @memberof StateWhileRevalidateStore
+   * @memberof staleWhileRevalidateStore
    */
   async initData(storeName, jsonData) {
     if (isIterable(jsonData)) {
-      const transaction = (await this.db).transaction(storeName, 'readwrite');
-      const store = transaction.objectStore(storeName);
+      var transaction = this.db.transaction(storeName, 'readwrite');
+      var store = transaction.store;
 
-      try {
-        await store.clear();
-      } catch (error) {
+      await store.clear().catch(error => {
         console.warn(`Failed to clear store '${storeName}'`);
         throw error;
-      }
+      });
 
       for (let entry of jsonData) {
-        try {
-          store.add(entry);
-        } catch (error) {
+        store.add(entry).catch(error => {
           console.warn(`Failed to add to '${storeName}': ${entry}`);
           throw error;
-        }
+        });
       }
 
+      // API DOC : https://www.npmjs.com/package/idb#txdone
       await transaction.done.catch(error => {
         console.warn(`Failed to initData into '${storeName}'`);
         throw error;
@@ -163,12 +198,90 @@ export class StateWhileRevalidateStore extends EventTarget {
    *
    *
    * @param {*} storeName
+   * @param {*} newEntry
+   * @returns
+   * @memberof staleWhileRevalidateStore
+   */
+  async insert(storeName, newEntry) {
+    if (!newEntry || typeof newEntry !== 'object' || newEntry.constructor !== Object) {
+      console.warn(`staleWhileRevalidateStore.insert must be called with an object. (storeName: ${storeName}, newEntry: ${newEntry})`);
+      return;
+    }
+
+    try {
+      const transaction = this.db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const key = dataStructuresObj[storeName].key;
+      const oldEntry = await store.get(newEntry[key]);
+
+      await store.put(newEntry);
+
+      // Notify listeners
+      if (oldEntry) {
+        this.dispatchEvent(new CustomEvent('storeItemChanged', { detail: { value: newEntry, storeName: storeName } }));
+      } else {
+        this.dispatchEvent(new CustomEvent('storeItemAdded', { detail: { value: newEntry, storeName: storeName } }));
+      }
+
+      // API DOC : https://www.npmjs.com/package/idb#txdone
+      await transaction.done.catch(error => {
+        console.warn(`Failed to insert into '${storeName}'`);
+        throw error;
+      });
+    } catch (error) {
+      console.warn(`Failed to insert '${storeName}': `, newEntry);
+      throw error;
+    }
+  }
+
+  /**
+   *
+   *
+   * @param {*} storeName
+   * @param {*} itemName
+   * @param {*} fieldName
+   * @param {*} value
+   * @returns
+   * @memberof staleWhileRevalidateStore
+   */
+  async update(storeName, itemName, fieldName, value) {
+    try {
+      const transaction = this.db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const item = await store.get(itemName);
+
+      if (!item) {
+        console.warn(`Failed to update '${storeName}': ${itemName} not found`);
+        return;
+      } else {
+        item[fieldName] = value;
+        await store.put(item);
+
+        // API DOC : https://www.npmjs.com/package/idb#txdone
+        await transaction.done.catch(error => {
+          console.warn(`Failed to update into '${storeName}'`);
+          throw error;
+        });
+
+        // Notify listeners
+        this.dispatchEvent(new CustomEvent('storeItemChanged', { detail: { value: item, storeName: storeName } }));
+      }
+    } catch (error) {
+      console.warn(`Failed to update '${storeName}': ${itemName}.${fieldName} = ${value}`);
+      throw error;
+    }
+  }
+
+  /**
+   *
+   *
+   * @param {*} storeName
    * @param {*} jsonData
-   * @memberof StateWhileRevalidateStore
+   * @memberof staleWhileRevalidateStore
    */
   async refreshData(storeName, jsonData) {
     if (isIterable(jsonData)) {
-      const transaction = (await this.db).transaction(storeName, 'readwrite');
+      const transaction = this.db.transaction(storeName, 'readwrite');
       const store = transaction.objectStore(storeName);
       const oldStore = arrayToObject(await store.getAll(), store.keyPath);
       const keyName = store.keyPath;
@@ -181,6 +294,7 @@ export class StateWhileRevalidateStore extends EventTarget {
           const key = newEntry[keyName];
           const oldEntry = oldStore[key];
           if (oldEntry && !isEqual(oldEntry, newEntry)) {
+            // Notify listeners
             this.dispatchEvent(
               new CustomEvent('storeItemChanged', {
                 detail: { value: newEntry, storeName: storeName },
@@ -200,21 +314,6 @@ export class StateWhileRevalidateStore extends EventTarget {
       });
     } else {
       console.warn(`Unknown or invalid data structure: '${jsonData}'`);
-    }
-  }
-
-  /**
-   *
-   *
-   * @param {*} val
-   * @returns
-   * @memberof StateWhileRevalidateStore
-   */
-  async set(val) {
-    try {
-      return (await this.db).put('items', val);
-    } catch (error) {
-      console.error(error);
     }
   }
 }
