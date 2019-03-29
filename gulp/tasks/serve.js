@@ -6,7 +6,7 @@ let serveTask = function(gulp, config, plugins, wrapFunc) {
       plugins.connect.server({
         root: config.paths.dist.root,
         port: config.localServer.port,
-        livereload: true
+        livereload: true,
       });
     } catch (e) {
       error(e);

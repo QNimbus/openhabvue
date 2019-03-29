@@ -6,15 +6,7 @@ const plugins = require('gulp-load-plugins')();
 const config = require('./config/config');
 
 var tasks = {};
-var taskNames = [
-  'clean',
-  'copy',
-  'bundle',
-  'serve',
-  'openBrowser',
-  'eslint',
-  'compileStyles'
-];
+var taskNames = ['clean', 'copy', 'bundle', 'serve', 'openBrowser', 'eslint', 'compileStyles', 'reload'];
 
 /**
  * Helper function for better error handling during Gulp tasks
@@ -49,16 +41,6 @@ module.exports = gulp => {
     return require('./tasks/' + taskName)(gulp, config, plugins, wrapFunc);
   }
 
-  function reloadTask() {
-    return gulp.task('reload', () => {
-      gulp.src(__filename).pipe(connect.reload());
-    });
-  }
-
-  function watchTask() {
-    plugins.watch(['./src/**/*'], series(parallel(build), reloadTask));
-  }
-
   const task = gulp.task;
   const series = gulp.series;
   const parallel = gulp.parallel;
@@ -70,18 +52,26 @@ module.exports = gulp => {
     task(`__${taskName}`, taskObject);
   });
 
+  gulp.task('__watch', function(done) {
+    gulp.watch(['./src/html/**/*.html', './src/partials/**/*.html'], series(buildHTML, reload));
+    gulp.watch('./src/scss/**/*.scss', series(buildCSS, reload));
+    gulp.watch('./src/js/**/*.js', series(buildJS, reload));
+    done();
+  });
+
   //let preBuild = [tasks.clean, tasks.eslint];
   let preBuild = [tasks.clean];
+  let buildHTML = [tasks.copy];
+  let buildCSS = [tasks.compileStyles];
+  let buildJS = [tasks.bundle];
   let build = [tasks.compileStyles, tasks.bundle, tasks.copy];
   let serve = [tasks.serve, tasks.openBrowser];
+  let reload = [tasks.reload];
 
   // Actual task definition
 
   tasks.build = task('build', series(preBuild, parallel(build)));
   tasks.dev = task('dev', series(parallel(preBuild), parallel(build), series(serve)));
 
-  tasks.watchdev = task(
-    'watchdev',
-    series(parallel(preBuild), parallel(build), series(serve), watchTask)
-  );
+  tasks.watchdev = task('watchdev', series(parallel(preBuild), parallel(build), series(serve), series('__watch')));
 };
