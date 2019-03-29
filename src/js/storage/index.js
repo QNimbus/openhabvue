@@ -1,2 +1,2 @@
 // Exports
-export { staleWhileRevalidateStore } from './staleWhileRevalidateStore';
+export { StaleWhileRevalidateStore } from './StaleWhileRevalidateStore';

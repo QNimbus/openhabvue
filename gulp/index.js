@@ -54,8 +54,8 @@ module.exports = gulp => {
 
   gulp.task('__watch', function(done) {
     gulp.watch(['./src/html/**/*.html', './src/partials/**/*.html'], series(buildHTML, reload));
-    gulp.watch('./src/scss/**/*.scss', series(buildCSS, reload));
-    gulp.watch('./src/js/**/*.js', series(buildJS, reload));
+    gulp.watch(['./src/scss/**/*.scss'], series(buildCSS, reload));
+    gulp.watch(['./src/js/**/*.js'], series(buildJS, reload));
     done();
   });
 

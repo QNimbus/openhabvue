@@ -18,4 +18,15 @@ import { StorageConnector } from './store';
 featureDetection_fetch();
 featureDetection_worker();
 
-const store = new StorageConnector();
+var store = new StorageConnector();
+
+store.addEventListener('connectionEstablished', event => {
+  console.log('connectionEstablished');
+  store.postMessage('Test!');
+});
+
+store.addEventListener('storeItemRemoved', event => {
+  console.log('storeItemRemoved!');
+});
+
+// store.test();

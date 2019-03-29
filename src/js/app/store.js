@@ -12,7 +12,7 @@
 /** jshint {inline configuration here} */
 
 export class StorageConnector extends EventTarget {
-  constructor(shared = false) {
+  constructor(shared = true) {
     super();
 
     // Configure worker thread (prefer SharedWorker over dedicated Worker)
@@ -23,8 +23,8 @@ export class StorageConnector extends EventTarget {
     this.worker.port instanceof MessagePort ? (this.port = this.worker.port) : (this.port = this.worker);
 
     // Setup event handlers
-    this.worker.onerror = this.error;
-    this.port.onmessage = this.incomingMessage;
+    this.worker.onerror = this.error.bind(this);
+    this.port.onmessage = this.incomingMessage.bind(this);
   }
 
   dispose() {
@@ -36,8 +36,21 @@ export class StorageConnector extends EventTarget {
     this.dispatchEvent(new CustomEvent('connectionLost', { detail: error }));
   }
 
-  incomingMessage(message) {
-    // console.log(message);
+  incomingMessage(messageEvent) {
+    const data = messageEvent.data;
+    switch (data.type) {
+      case 'storeItemRemoved':
+      case 'connectionEstablished':
+      case 'connect': {
+        this.dispatchEvent(new CustomEvent(data.type, { detail: messageEvent }));
+        break;
+      }
+      default: {
+        // Unknown event or regular message
+        this.dispatchEvent(new CustomEvent('message', { detail: messageEvent }));
+        break;
+      }
+    }
   }
 
   postMessage(message) {

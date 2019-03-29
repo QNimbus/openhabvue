@@ -1,10 +1,13 @@
 /**
  * TODO: Summary. (use period)
  *
- * TODO: Description. (use period)
+ * TODO: This class provides an interface between the IndeDB datastore and the client.
+ * It uses the 'stale-while-revalidate' pattern. The stale-while-revalidate pattern allows you
+ * to respond the request as quickly as possible with a cached response if available,
+ * falling back to the network request if it’s not cached. The network request is then used to update the cache.
  *
  * @link   https://github.com/QNimbus/openhabvue/blob/dev/src/js/storage/StaleWhileRevalidateStore.js
- * @file   This files defines the MyClass class.
+ * @file   This files defines the StaleWhileRevalidateStore class.
  * @author B. van Wetten <bas.van.wetten@gmail.com>
  * @since  27-03-2019
  */
@@ -23,10 +26,10 @@ import { dbVersion, dataStructures, dataStructuresObj } from './openHabStorageMo
  *
  *
  * @export
- * @class staleWhileRevalidateStore
+ * @class StaleWhileRevalidateStore
  * @extends {EventTarget}
  */
-export class staleWhileRevalidateStore extends EventTarget {
+export class StaleWhileRevalidateStore extends EventTarget {
   constructor(storeName = window.location.host) {
     super();
 
@@ -37,7 +40,7 @@ export class staleWhileRevalidateStore extends EventTarget {
   /**
    *
    *
-   * @memberof staleWhileRevalidateStore
+   * @memberof StaleWhileRevalidateStore
    */
   dispose() {
     if (this.db) {
@@ -51,7 +54,7 @@ export class staleWhileRevalidateStore extends EventTarget {
    * @param {string} [host='localhost']
    * @param {number} [port=8080]
    * @returns
-   * @memberof staleWhileRevalidateStore
+   * @memberof StaleWhileRevalidateStore
    */
   async connect(host = 'localhost', port = 8080) {
     this.host = host;
@@ -65,7 +68,7 @@ export class staleWhileRevalidateStore extends EventTarget {
         for (let dataStructure of dataStructures) {
           if (dataStructure.key) {
             db.createObjectStore(dataStructure.id, {
-              keyPath: dataStructure.key,
+              keyPath: dataStructure.key
             });
           } else {
             db.createObjectStore(dataStructure.id, { autoIncrement: true });
@@ -77,7 +80,7 @@ export class staleWhileRevalidateStore extends EventTarget {
       },
       blocking() {
         console.warn('This connection is blocking a future version of the database from opening.');
-      },
+      }
     });
 
     // Fetch all endpoints in parallel, replace the stores with the received data
@@ -120,7 +123,7 @@ export class staleWhileRevalidateStore extends EventTarget {
    *
    * @param {*} message
    * @returns
-   * @memberof staleWhileRevalidateStore
+   * @memberof StaleWhileRevalidateStore
    */
   sseMessageReceived(message) {
     const data = JSON.parse(message.data);
@@ -165,7 +168,7 @@ export class staleWhileRevalidateStore extends EventTarget {
    *
    * @param {*} storeName
    * @param {*} jsonData
-   * @memberof staleWhileRevalidateStore
+   * @memberof StaleWhileRevalidateStore
    */
   async initData(storeName, jsonData) {
     if (isIterable(jsonData)) {
@@ -198,21 +201,66 @@ export class staleWhileRevalidateStore extends EventTarget {
    *
    *
    * @param {*} storeName
+   * @param {*} jsonData
+   * @memberof StaleWhileRevalidateStore
+   */
+  async refreshData(storeName, jsonData) {
+    if (isIterable(jsonData)) {
+      const transaction = this.db.transaction(storeName, 'readwrite');
+      const store = transaction.store;
+      const oldStore = arrayToObject(await store.getAll(), store.keyPath);
+      const keyName = store.keyPath;
+
+      // Clear and add entry per entry
+      await store.clear();
+
+      for (let newEntry of jsonData) {
+        try {
+          const key = newEntry[keyName];
+          const oldEntry = oldStore[key];
+          if (oldEntry && !isEqual(oldEntry, newEntry)) {
+            // Notify listeners
+            this.dispatchEvent(
+              new CustomEvent('storeItemChanged', {
+                detail: { value: newEntry, storeName: storeName }
+              })
+            );
+          }
+          await store.add(newEntry);
+        } catch (error) {
+          console.warn(`Failed to add to '${storeName}': ${newEntry}`);
+          throw error;
+        }
+      }
+
+      await transaction.done.catch(error => {
+        console.warn(`Failed to refreshData into '${storeName}'`);
+        throw error;
+      });
+    } else {
+      console.warn(`Unknown or invalid data structure: '${jsonData}'`);
+    }
+  }
+
+  /**
+   *
+   *
+   * @param {*} storeName
    * @param {*} newEntry
    * @returns
-   * @memberof staleWhileRevalidateStore
+   * @memberof StaleWhileRevalidateStore
    */
   async insert(storeName, newEntry) {
     if (!newEntry || typeof newEntry !== 'object' || newEntry.constructor !== Object) {
-      console.warn(`staleWhileRevalidateStore.insert must be called with an object. (storeName: ${storeName}, newEntry: ${newEntry})`);
+      console.warn(`StaleWhileRevalidateStore.insert must be called with an object. (storeName: ${storeName}, newEntry: ${newEntry})`);
       return;
     }
 
     try {
       const transaction = this.db.transaction(storeName, 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const key = dataStructuresObj[storeName].key;
-      const oldEntry = await store.get(newEntry[key]);
+      const store = transaction.store;
+      const keyName = dataStructuresObj[storeName].key;
+      const oldEntry = await store.get(newEntry[keyName]);
 
       await store.put(newEntry);
 
@@ -242,12 +290,12 @@ export class staleWhileRevalidateStore extends EventTarget {
    * @param {*} fieldName
    * @param {*} value
    * @returns
-   * @memberof staleWhileRevalidateStore
+   * @memberof StaleWhileRevalidateStore
    */
   async update(storeName, itemName, fieldName, value) {
     try {
       const transaction = this.db.transaction(storeName, 'readwrite');
-      const store = transaction.objectStore(storeName);
+      const store = transaction.store;
       const item = await store.get(itemName);
 
       if (!item) {
@@ -272,48 +320,24 @@ export class staleWhileRevalidateStore extends EventTarget {
     }
   }
 
-  /**
-   *
-   *
-   * @param {*} storeName
-   * @param {*} jsonData
-   * @memberof staleWhileRevalidateStore
-   */
-  async refreshData(storeName, jsonData) {
-    if (isIterable(jsonData)) {
+  async remove(storeName, entry) {
+    if (!entry || typeof entry !== 'object' || entry.constructor !== Object) {
+      console.warn(`StaleWhileRevalidateStore.remove must be called with an object. (storeName: ${storeName}, entry: ${entry})`);
+      return;
+    }
+
+    try {
       const transaction = this.db.transaction(storeName, 'readwrite');
       const store = transaction.objectStore(storeName);
-      const oldStore = arrayToObject(await store.getAll(), store.keyPath);
-      const keyName = store.keyPath;
+      const keyName = dataStructuresObj[storeName].key;
+      const key = entry[keyName];
 
-      // Clear and add entry per entry
-      await store.clear();
-
-      for (let newEntry of jsonData) {
-        try {
-          const key = newEntry[keyName];
-          const oldEntry = oldStore[key];
-          if (oldEntry && !isEqual(oldEntry, newEntry)) {
-            // Notify listeners
-            this.dispatchEvent(
-              new CustomEvent('storeItemChanged', {
-                detail: { value: newEntry, storeName: storeName },
-              })
-            );
-          }
-          await store.add(newEntry);
-        } catch (error) {
-          console.warn(`Failed to add to '${storeName}': ${newEntry}`);
-          throw error;
-        }
-      }
-
-      await transaction.done.catch(error => {
-        console.warn(`Failed to refreshData into '${storeName}'`);
-        throw error;
-      });
-    } else {
-      console.warn(`Unknown or invalid data structure: '${jsonData}'`);
+      await store.delete(key);
+      this.dispatchEvent(new CustomEvent('storeItemRemoved', { detail: { value: entry, storeName: storeName } }));
+      return null;
+    } catch (error) {
+      console.warn(`Failed to remove '${storeName}': `, entry);
+      throw error;
     }
   }
 }
