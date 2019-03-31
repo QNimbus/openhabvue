@@ -20,7 +20,7 @@ import { isEqual } from 'lodash-es';
 
 // Local imports
 import { isIterable, arrayToObject, customFetch } from '../_helpers';
-import { dbVersion, dataStructures, dataStructuresObj } from './openHabStorageModel';
+import { dbVersion, dataStructures, dataStructuresObj } from './OpenHabStorageModel';
 
 /**
  *
@@ -240,6 +240,14 @@ export class StaleWhileRevalidateStore extends EventTarget {
     } else {
       console.warn(`Unknown or invalid data structure: '${jsonData}'`);
     }
+  }
+
+  async get(storeName, objectID, options = {}) {
+    return Promise.resolve(true);
+  }
+
+  async getAll(storeName, options = {}) {
+    return Promise.resolve(true);
   }
 
   /**

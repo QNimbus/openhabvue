@@ -21,6 +21,8 @@ class StorageWorker {
     this.worker = worker;
     this.port = worker;
 
+    this.port.onmessage = this.incomingMessage.bind(this);
+
     this.store.connect('rancher.home.besqua.red', 18080);
 
     // Shared workers need to wait for the 'connect' event
@@ -30,8 +32,6 @@ class StorageWorker {
       this.port.onmessage = this.incomingMessage.bind(this);
       this.postMessage({ type: event.type, msg: event.detail });
     };
-
-    this.port.onmessage = this.incomingMessage.bind(this);
 
     this.store.addEventListener('storeItemChanged', event => {
       this.postMessage({ type: event.type, msg: event.detail });
@@ -50,8 +50,29 @@ class StorageWorker {
     });
   }
 
-  incomingMessage(messageEvent) {
-    console.log(messageEvent);
+  async incomingMessage(messageEvent) {
+    const data = messageEvent.data;
+    let result;
+
+    try {
+      switch (data.type) {
+        case 'get': {
+          if (data.objectID) {
+            result = await this.store.get(data.storeName, data.objectID, data.options);
+          } else {
+            result = await this.store.getAll(data.storeName, data.options);
+          }
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+      this.postMessage({ type: data.type, result: result, msgID: data.msgID });
+    } catch (error) {
+      console.warn('Database error', data.type, error);
+      this.postMessage({ type: e.type, result: error.toString(), isError: true, msgID: data.msgID });
+    }
   }
 
   postMessage(message) {
