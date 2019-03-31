@@ -20,36 +20,39 @@ featureDetection_worker();
 
 var store = new StorageConnector();
 
-store
-  .get('items')
-  .then(result => {
-    console.log(`Attempt #1`, result);
-  })
-  .catch(error => {
-    console.log(error);
-  });
+store.addEventListener('connectionEstablished', event => {
+  console.log(event);
+  store
+    .get('items', 'FF_Office_Dimmer_Spotlights')
+    .then(result => {
+      console.log(`Attempt #1`, result);
+    })
+    .catch(error => {
+      console.log(error);
+    });
+});
 
-store
-  .get('items')
-  .then(result => {
-    console.log(`Attempt #2`, result);
-  })
-  .catch(error => {
-    console.log(error);
-  });
+// store
+//   .get('items')
+//   .then(result => {
+//     console.log(`Attempt #2`, result);
+//   })
+//   .catch(error => {
+//     console.log(error);
+//   });
 
-store
-  .get('items')
-  .then(result => {
-    console.log(`Attempt #3`, result);
-  })
-  .catch(error => {
-    console.log(error);
-  });
+// store
+//   .get('items')
+//   .then(result => {
+//     console.log(`Attempt #3`, result);
+//   })
+//   .catch(error => {
+//     console.log(error);
+//   });
 
-setTimeout(() => {
-  console.log(store.queue);
-}, 5000);
+// setTimeout(() => {
+//   console.log(store.queue);
+// }, 5000);
 // store.addEventListener('connect', event => {
 //   console.log('connect', event);
 // });

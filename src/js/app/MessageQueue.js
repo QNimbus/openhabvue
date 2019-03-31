@@ -11,8 +11,7 @@
 
 /** jshint {inline configuration here} */
 
-const QUEUE_TIMEOUT = 5000;
-const MAX_QUEUES = 250;
+const QUEUE_ITEM_TIMEOUT = 5000;
 
 export class MessageQueue {
   constructor(storageConnector) {
@@ -33,6 +32,7 @@ export class MessageQueue {
   add(type) {
     let newQueueItem = new QueueItem(this, this.storageConnector, type);
     this.queue[this.messageID++] = newQueueItem;
+    this.messageID %= 1000;
     return newQueueItem;
   }
 }
@@ -56,7 +56,7 @@ export class QueueItem {
     });
 
     // Automatically expire queue item after timeout
-    this.expireTimer = setTimeout(() => this.expire(), QUEUE_TIMEOUT);
+    this.expireTimer = setTimeout(() => this.expire(), QUEUE_ITEM_TIMEOUT);
   }
 
   /**

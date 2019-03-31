@@ -34,6 +34,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
     super();
 
     this.connected = false;
+    this.activeQueries = {};
     this.storeName = storeName;
   }
 
@@ -45,6 +46,9 @@ export class StaleWhileRevalidateStore extends EventTarget {
   dispose() {
     if (this.db) {
       this.db.close();
+    }
+    if (this.eventSource) {
+      this.eventSource.close();
     }
   }
 
@@ -93,7 +97,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
             console.warn(`Failed to fetch ${restURL}/${item.uri}`);
           })
           .then(response => response.json())
-          .then(json => this.initData(item.id, json))
+          .then(json => this.initDatastore(item.id, json))
           .catch(error => {
             console.warn('Failed to fill', item.id);
             throw error;
@@ -103,13 +107,10 @@ export class StaleWhileRevalidateStore extends EventTarget {
     // Wait for all requests (promises) to complete and register SSE
     return Promise.all(requests)
       .then(() => {
-        this.evtSource = new EventSource(`${restURL}/rest/events`);
-        this.evtSource.onmessage = this.sseMessageReceived.bind(this);
-        this.evtSource.onerror = this.sseError.bind(this);
-      })
-      .then(() => {
-        this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: this.host }));
-        this.connected = true;
+        this.eventSource = new EventSource(`${restURL}/rest/events`);
+        this.eventSource.onmessage = this.sseMessageReceived.bind(this);
+        this.eventSource.onerror = this.sseError.bind(this);
+        this.eventSource.onopen = this.sseOpen.bind(this);
       })
       .catch(error => {
         this.connected = false;
@@ -159,8 +160,31 @@ export class StaleWhileRevalidateStore extends EventTarget {
     }
   }
 
-  sseError(message) {
-    console.log('sse error', message);
+  /**
+   *
+   *
+   * @param {*} error
+   * @memberof StaleWhileRevalidateStore
+   */
+  sseError(error) {
+    if (this.eventSource.readyState !== 1) {
+      this.connected = false;
+      console.error(`Connection lost to http://${this.host}:${this.port}`);
+      this.dispatchEvent(new CustomEvent('connectionLost', { detail: { type: 404, message: error.toString() } }));
+    } else {
+      throw error;
+    }
+  }
+
+  /**
+   *
+   *
+   * @param {*} message
+   * @memberof StaleWhileRevalidateStore
+   */
+  sseOpen(message) {
+    this.connected = true;
+    this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: this.host }));
   }
 
   /**
@@ -170,7 +194,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
    * @param {*} jsonData
    * @memberof StaleWhileRevalidateStore
    */
-  async initData(storeName, jsonData) {
+  async initDatastore(storeName, jsonData) {
     if (isIterable(jsonData)) {
       var transaction = this.db.transaction(storeName, 'readwrite');
       var store = transaction.store;
@@ -189,7 +213,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
 
       // API DOC : https://www.npmjs.com/package/idb#txdone
       await transaction.done.catch(error => {
-        console.warn(`Failed to initData into '${storeName}'`);
+        console.warn(`Failed to initDatastore into '${storeName}'`);
         throw error;
       });
     } else {
@@ -242,12 +266,60 @@ export class StaleWhileRevalidateStore extends EventTarget {
     }
   }
 
+  queryRESTAPI(uri) {
+    const isQueryRunning = this.activeQueries.hasOwnProperty(uri);
+    if (isQueryRunning) {
+      return this.activeQueries[uri];
+    }
+
+    this.activeQueries[uri] = customFetch(`http://${this.host}:${this.port}/${uri}`)
+      .then(response => response.json())
+      .catch(error => {
+        throw error;
+      })
+      .finally(() => delete this.activeQueries[uri]);
+
+    return this.activeQueries[uri];
+  }
+
   async get(storeName, objectID, options = {}) {
-    return Promise.resolve(true);
+    let dataStoreEntry;
+    let newEntry;
+    try {
+      const transaction = this.db.transaction(storeName, 'readonly');
+      const store = transaction.store;
+      const uri = dataStructuresObj[storeName].uri;
+
+      // Get current value from datastore
+      dataStoreEntry = await store.get(objectID);
+
+      // Query REST API for actual/current state
+      newEntry = this.queryRESTAPI(`${uri}/${objectID}`)
+        .catch(error => {
+          console.warn(`REST API query failed for ${uri}`);
+          throw error;
+        })
+        .then(jsonData => this.insert(storeName, jsonData));
+    } catch (error) {
+      console.warn('Failed to read', storeName, objectID);
+      dataStoreEntry = null;
+    } finally {
+      return newEntry || Promise.resolve(dataStoreEntry);
+    }
   }
 
   async getAll(storeName, options = {}) {
-    return Promise.resolve(true);
+    let dataStoreEntries;
+    try {
+      const transaction = this.db.transaction(storeName, 'readonly');
+      const store = transaction.store;
+      dataStoreEntries = await store.getAll();
+    } catch (error) {
+      console.warn('Failed to read', storeName);
+      dataStoreEntries = null;
+    } finally {
+      return dataStoreEntries;
+    }
   }
 
   /**
@@ -284,6 +356,8 @@ export class StaleWhileRevalidateStore extends EventTarget {
         console.warn(`Failed to insert into '${storeName}'`);
         throw error;
       });
+
+      return newEntry;
     } catch (error) {
       console.warn(`Failed to insert '${storeName}': `, newEntry);
       throw error;

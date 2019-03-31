@@ -20,10 +20,9 @@ class StorageWorker {
     this.store = new StaleWhileRevalidateStore('OpenHAB');
     this.worker = worker;
     this.port = worker;
+    this.connected = false;
 
     this.port.onmessage = this.incomingMessage.bind(this);
-
-    this.store.connect('rancher.home.besqua.red', 18080);
 
     // Shared workers need to wait for the 'connect' event
     // See: https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker#Example
@@ -43,9 +42,11 @@ class StorageWorker {
       this.postMessage({ type: event.type, msg: event.detail });
     });
     this.store.addEventListener('connectionEstablished', event => {
+      this.connected = true;
       this.postMessage({ type: event.type, msg: event.detail });
     });
     this.store.addEventListener('connectionLost', event => {
+      this.connected = false;
       this.postMessage({ type: event.type, msg: event.detail });
     });
   }
@@ -56,28 +57,38 @@ class StorageWorker {
 
     try {
       switch (data.type) {
+        case 'connect': {
+          let host = data.host;
+          let port = data.port;
+          if (!host || !port || isNaN(port)) {
+            console.warn(`Invalid or unspecificied host:post (${host}:${port})`);
+          } else {
+            this.store.connect(host, port);
+          }
+          break;
+        }
         case 'get': {
           if (data.objectID) {
             result = await this.store.get(data.storeName, data.objectID, data.options);
           } else {
             result = await this.store.getAll(data.storeName, data.options);
           }
+          this.postMessage({ type: data.type, result: result, msgID: data.msgID });
           break;
         }
         default: {
           break;
         }
       }
-      this.postMessage({ type: data.type, result: result, msgID: data.msgID });
     } catch (error) {
       console.warn('Database error', data.type, error);
-      this.postMessage({ type: e.type, result: error.toString(), isError: true, msgID: data.msgID });
+      this.postMessage({ type: error.type, result: error.toString(), isError: true, msgID: data.msgID });
     }
   }
 
   postMessage(message) {
     let port = this.port;
-    if (typeof port.postMessage === 'function') {
+    if (port && typeof port.postMessage === 'function') {
       port.postMessage(message);
     }
   }

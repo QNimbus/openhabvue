@@ -12,7 +12,7 @@
 /** jshint {inline configuration here} */
 
 // Local imports
-import { MessageQueue, QueueItem } from './MessageQueue';
+import { MessageQueue } from './MessageQueue';
 
 export class StorageConnector extends EventTarget {
   constructor(shared = true) {
@@ -31,6 +31,9 @@ export class StorageConnector extends EventTarget {
     // Setup event handlers
     this.worker.onerror = this.error.bind(this);
     this.port.onmessage = this.incomingMessage.bind(this);
+
+    // Initialize worker datastore connection
+    this.postMessage({ type: 'connect', host: 'rancher.home.besqua.red', port: '18080' });
   }
 
   /**
@@ -109,7 +112,7 @@ export class StorageConnector extends EventTarget {
   postMessage(message) {
     let port = this.port;
     // If postMessage gets called before the SharedWorker has a connection it cannot be called
-    if (typeof port.postMessage === 'function') {
+    if (port && typeof port.postMessage === 'function') {
       port.postMessage(message);
     }
   }
