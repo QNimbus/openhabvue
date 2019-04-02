@@ -154,7 +154,6 @@ export class StaleWhileRevalidateStore extends EventTarget {
       case 'ItemStatePredictedEvent':
       case 'ItemCommandEvent':
       default: {
-        // console.log(`Ignored: ${JSON.stringify(data.type)}`);
         return;
       }
     }
@@ -184,7 +183,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
    */
   sseOpen(message) {
     this.connected = true;
-    this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: this.host }));
+    this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: { host: this.host, message: message } }));
   }
 
   /**
@@ -228,29 +227,28 @@ export class StaleWhileRevalidateStore extends EventTarget {
    * @param {*} jsonData
    * @memberof StaleWhileRevalidateStore
    */
-  async refreshData(storeName, jsonData) {
+  async insertAll(storeName, jsonData) {
     if (isIterable(jsonData)) {
       const transaction = this.db.transaction(storeName, 'readwrite');
       const store = transaction.store;
       const oldStore = arrayToObject(await store.getAll(), store.keyPath);
       const keyName = store.keyPath;
 
-      // Clear and add entry per entry
-      await store.clear();
-
       for (let newEntry of jsonData) {
         try {
           const key = newEntry[keyName];
           const oldEntry = oldStore[key];
-          if (oldEntry && !isEqual(oldEntry, newEntry)) {
-            // Notify listeners
-            this.dispatchEvent(
-              new CustomEvent('storeItemChanged', {
-                detail: { value: newEntry, storeName: storeName }
-              })
-            );
+          // Notify listeners
+          if (oldEntry) {
+            if (!isEqual(oldEntry, newEntry)) {
+              this.dispatchEvent(new CustomEvent('storeItemChanged', { detail: { value: newEntry, storeName: storeName } }));
+            } else {
+              // Don't notify for existing, un-changed items
+            }
+          } else {
+            this.dispatchEvent(new CustomEvent('storeItemAdded', { detail: { value: newEntry, storeName: storeName } }));
           }
-          await store.add(newEntry);
+          await store.put(newEntry);
         } catch (error) {
           console.warn(`Failed to add to '${storeName}': ${newEntry}`);
           throw error;
@@ -258,14 +256,23 @@ export class StaleWhileRevalidateStore extends EventTarget {
       }
 
       await transaction.done.catch(error => {
-        console.warn(`Failed to refreshData into '${storeName}'`);
+        console.warn(`Failed to insertAll into '${storeName}'`);
         throw error;
       });
+
+      return jsonData;
     } else {
       console.warn(`Unknown or invalid data structure: '${jsonData}'`);
     }
   }
 
+  /**
+   *
+   *
+   * @param {*} uri
+   * @returns
+   * @memberof StaleWhileRevalidateStore
+   */
   queryRESTAPI(uri) {
     const isQueryRunning = this.activeQueries.hasOwnProperty(uri);
     if (isQueryRunning) {
@@ -282,6 +289,15 @@ export class StaleWhileRevalidateStore extends EventTarget {
     return this.activeQueries[uri];
   }
 
+  /**
+   *
+   *
+   * @param {*} storeName
+   * @param {*} objectID
+   * @param {*} [options={}]
+   * @returns
+   * @memberof StaleWhileRevalidateStore
+   */
   async get(storeName, objectID, options = {}) {
     let dataStoreEntry;
     let newEntry;
@@ -296,7 +312,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
       // Query REST API for actual/current state
       newEntry = this.queryRESTAPI(`${uri}/${objectID}`)
         .catch(error => {
-          console.warn(`REST API query failed for ${uri}`);
+          console.warn(`REST API query failed for ${uri}/${objectID}`);
           throw error;
         })
         .then(jsonData => this.insert(storeName, jsonData));
@@ -308,17 +324,37 @@ export class StaleWhileRevalidateStore extends EventTarget {
     }
   }
 
+  /**
+   *
+   *
+   * @param {*} storeName
+   * @param {*} [options={}]
+   * @returns
+   * @memberof StaleWhileRevalidateStore
+   */
   async getAll(storeName, options = {}) {
     let dataStoreEntries;
+    let newEntries;
     try {
       const transaction = this.db.transaction(storeName, 'readonly');
       const store = transaction.store;
+      const uri = dataStructuresObj[storeName].uri;
+
+      // Get current values from datastore
       dataStoreEntries = await store.getAll();
+
+      // Query REST API for actual/current state
+      newEntries = this.queryRESTAPI(`${uri}`)
+        .catch(error => {
+          console.warn(`REST API query failed for ${uri}`);
+          throw error;
+        })
+        .then(jsonData => this.insertAll(storeName, jsonData));
     } catch (error) {
-      console.warn('Failed to read', storeName);
+      console.warn('Failed to read', storeName, error);
       dataStoreEntries = null;
     } finally {
-      return dataStoreEntries;
+      return newEntries || Promise.resolve(dataStoreEntries);
     }
   }
 

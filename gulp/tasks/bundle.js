@@ -2,6 +2,8 @@
 
 const rollupPluginNodeModuleResolve = require('rollup-plugin-node-resolve');
 const rollupPluginReplace = require('rollup-plugin-replace');
+const rollupPluginVue = require('rollup-plugin-vue');
+const rollupCommonjs = require('rollup-plugin-commonjs');
 
 let bundleTask = function(gulp, config, plugins, wrapFunc) {
   let func = wrapFunc(function(success, error) {
@@ -13,6 +15,8 @@ let bundleTask = function(gulp, config, plugins, wrapFunc) {
             treeshake: true,
             external: config.external_js,
             plugins: [
+              rollupCommonjs(),
+              rollupPluginVue(),
               rollupPluginNodeModuleResolve({
                 main: false,
                 browser: false,
@@ -32,8 +36,6 @@ let bundleTask = function(gulp, config, plugins, wrapFunc) {
           if (path.basename === 'index') {
             path.basename = modulename || path.dirname;
             path.dirname = '';
-          } else if (singleFileBundle) {
-            if (modulename) path.dirname = modulename;
           } else {
             // Input is: node_modules/monaco-editor/esm/vs/language/json/json.worker.js. Output is: json.worker.js
             path.dirname = '';

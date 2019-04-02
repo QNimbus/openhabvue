@@ -13,9 +13,13 @@ module.exports = {
       root: './src/partials',
       glob: '**/*.html',
     },
+    components: {
+      root: './src/components',
+      glob: '*.js',
+    },
     html: {
       root: './src/html',
-      glob: '*.html',
+      glob: '**/*.html',
     },
     scss: {
       root: './src/scss',
