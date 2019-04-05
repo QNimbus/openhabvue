@@ -29,7 +29,6 @@ class StorageWorker {
     this.worker.onconnect = event => {
       [this.port] = event.ports;
       this.port.onmessage = this.incomingMessage.bind(this);
-      this.postMessage({ type: event.type, msg: event.detail });
     };
 
     this.store.addEventListener('storeItemChanged', event => {
@@ -55,6 +54,7 @@ class StorageWorker {
     const data = messageEvent.data;
     let result;
 
+    console.debug(`storage-worker.incomingMessage: `, data);
     try {
       switch (data.type) {
         case 'connect': {
@@ -89,6 +89,7 @@ class StorageWorker {
   postMessage(message) {
     let port = this.port;
     if (port && typeof port.postMessage === 'function') {
+      console.debug(`storage-worker.postMessage: `, message);
       port.postMessage(message);
     }
   }

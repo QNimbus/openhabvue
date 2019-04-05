@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = {
-  external_js: ['./vue.js', '../vue.js', '../js/vue.js'],
+  external_js: ['./vue.js', '../vue.js', '../js/vue.js', './app.js', '../app.js', '../js/app.js'],
   localServer: {
     port: 8001,
     host: 'localhost',
@@ -31,6 +31,7 @@ module.exports = {
       js: './dist/js/',
       css: './dist/css/',
     },
-    js_modules: ['./src/js/*/index.js', '!src/js/_*/index.js'],
+    js_modules: ['./src/js/*/index.js', '!src/js/_*/index.js', '!src/js/single/*.js'],
+    js_single_files: ['src/js/single/*.js'],
   },
 };

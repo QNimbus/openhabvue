@@ -2,5 +2,6 @@
     "javascript.preferences.quoteStyle": "single",
     "typescript.preferences.quoteStyle": "single",
     "prettier.singleQuote": true,
-    "prettier.printWidth": 160
+    "prettier.printWidth": 240,
+    "editor.minimap.maxColumn": 240
 }

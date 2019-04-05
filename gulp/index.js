@@ -6,7 +6,7 @@ const plugins = require('gulp-load-plugins')();
 const config = require('./config/config');
 
 var tasks = {};
-var taskNames = ['clean', 'copy', 'bundle', 'serve', 'openBrowser', 'eslint', 'compileStyles', 'reload'];
+var taskNames = ['clean', 'copy', 'bundle', 'bundleSingle', 'serve', 'openBrowser', 'eslint', 'compileStyles', 'reload'];
 
 /**
  * Helper function for better error handling during Gulp tasks
@@ -63,8 +63,8 @@ module.exports = gulp => {
   let preBuild = [tasks.clean];
   let buildHTML = [tasks.copy];
   let buildCSS = [tasks.compileStyles];
-  let buildJS = [tasks.bundle];
-  let build = [tasks.compileStyles, tasks.bundle, tasks.copy];
+  let buildJS = [tasks.bundle, tasks.bundleSingle];
+  let build = [tasks.compileStyles, tasks.bundle, tasks.bundleSingle, tasks.copy];
   let serve = [tasks.serve, tasks.openBrowser];
   let reload = [tasks.reload];
 

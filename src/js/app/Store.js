@@ -18,6 +18,9 @@ export class StorageConnector extends EventTarget {
   constructor(shared = true) {
     super();
 
+    // Keep track of connection state
+    this.connected = false;
+
     // Initialize queue
     this.queue = new MessageQueue(this);
 
@@ -85,10 +88,21 @@ export class StorageConnector extends EventTarget {
       case 'storeItemChanged':
       case 'storeItemRemoved':
       case 'storeItemAdded':
-      case 'connectionEstablished':
-      case 'connectionLost':
       case 'connect': {
-        this.dispatchEvent(new CustomEvent(data.type, { detail: messageEvent }));
+        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+        this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
+        break;
+      }
+      case 'connectionEstablished': {
+        this.connected = true;
+        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+        this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
+        break;
+      }
+      case 'connectionLost': {
+        this.connected = false;
+        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+        this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
         break;
       }
       default: {
@@ -96,7 +110,8 @@ export class StorageConnector extends EventTarget {
         if (!data.type) {
           console.warn(`Database event received without 'type' property`, data);
         } else {
-          this.dispatchEvent(new CustomEvent('message', { detail: messageEvent }));
+          console.debug(`StorageConnector.incomingMessage: dispatchEvent `, data.type);
+          this.dispatchEvent(new CustomEvent('message', { detail: data.msg }));
         }
         break;
       }
@@ -113,6 +128,7 @@ export class StorageConnector extends EventTarget {
     let port = this.port;
     // If postMessage gets called before the SharedWorker has a connection it cannot be called
     if (port && typeof port.postMessage === 'function') {
+      console.debug(`StorageConnector.postMessage: `, message);
       port.postMessage(message);
     }
   }

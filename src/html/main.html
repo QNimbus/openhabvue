@@ -9,9 +9,18 @@
     <nav-ajax-page-load></nav-ajax-page-load>
     <header></header>
     <main>
-      <vue-oh-test id="testID">Hello World, this is a test!</vue-oh-test>
-      <div id="app">{{ message }}</div>
-      <a data-no-reload="nav" href="test.html">Test link (test.html)</a>
+      <oh-vue-bind model="items"></oh-vue-bind>
+      <oh-vue-list>
+        <div slot="app"></div>
+        <template slot="list">
+          <ul slot="app">
+              <oh-vue-list-item v-for="item in items" :key="item.id" :listitem="item"></oh-vue-list-item>
+          </ul>
+        </template>
+        <template slot="item">
+            <li>{{listitem.name}}</li>
+        </template>
+      </oh-vue-list>
     </main>
     <footer></footer>
   </body>

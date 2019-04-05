@@ -5,10 +5,10 @@ const rollupPluginReplace = require('rollup-plugin-replace');
 const rollupPluginVue = require('rollup-plugin-vue');
 const rollupCommonjs = require('rollup-plugin-commonjs');
 
-let bundleTask = function(gulp, config, plugins, wrapFunc) {
+let bundleSingleTask = function(gulp, config, plugins, wrapFunc) {
   let func = wrapFunc(function(success, error) {
     gulp
-      .src(config.paths.js_modules)
+      .src(config.paths.js_single_files)
       .pipe(
         plugins.betterRollup(
           {
@@ -40,8 +40,8 @@ let bundleTask = function(gulp, config, plugins, wrapFunc) {
             // Input is: node_modules/monaco-editor/esm/vs/language/json/json.worker.js. Output is: json.worker.js
             path.dirname = '';
           }
-          console.log('Build: ' + path.dirname + '/' + path.basename);
-          return path;
+          console.log('Build: ' + path.basename);
+          return path.basename;
         })
       )
       .pipe(gulp.dest(config.paths.dist.js))
@@ -49,10 +49,10 @@ let bundleTask = function(gulp, config, plugins, wrapFunc) {
       .on('end', success);
   });
 
-  func.displayName = 'Bundle JS modules';
-  func.description = 'Bundle JS modules';
+  func.displayName = 'Bundle JS files';
+  func.description = 'Bundle JS files';
 
   return func;
 };
 
-module.exports = bundleTask;
+module.exports = bundleSingleTask;

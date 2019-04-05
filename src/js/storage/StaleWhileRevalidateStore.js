@@ -61,6 +61,12 @@ export class StaleWhileRevalidateStore extends EventTarget {
    * @memberof StaleWhileRevalidateStore
    */
   async connect(host = 'localhost', port = 8080) {
+    // Delete previous database if it exists
+    if (this.db) {
+      this.db.close();
+      delete this.db;
+    }
+
     this.host = host;
     this.port = port;
     this.db = await openDB(this.storeName, dbVersion, {
@@ -72,7 +78,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
         for (let dataStructure of dataStructures) {
           if (dataStructure.key) {
             db.createObjectStore(dataStructure.id, {
-              keyPath: dataStructure.key
+              keyPath: dataStructure.key,
             });
           } else {
             db.createObjectStore(dataStructure.id, { autoIncrement: true });
@@ -84,7 +90,9 @@ export class StaleWhileRevalidateStore extends EventTarget {
       },
       blocking() {
         console.warn('This connection is blocking a future version of the database from opening.');
-      }
+      },
+    }).catch(error => {
+      console.error(error);
     });
 
     // Fetch all endpoints in parallel, replace the stores with the received data
@@ -94,13 +102,12 @@ export class StaleWhileRevalidateStore extends EventTarget {
       .map(item =>
         customFetch(`${restURL}/${item.uri}`)
           .catch(error => {
-            console.warn(`Failed to fetch ${restURL}/${item.uri}`);
+            console.warn(`Failed to fetch ${restURL}/${item.uri}`, error);
           })
           .then(response => response.json())
           .then(json => this.initDatastore(item.id, json))
           .catch(error => {
-            console.warn('Failed to fill', item.id);
-            throw error;
+            console.warn('Failed to fill', item.id, error);
           })
       );
 
@@ -183,7 +190,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
    */
   sseOpen(message) {
     this.connected = true;
-    this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: { host: this.host, message: message } }));
+    this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: this.host }));
   }
 
   /**

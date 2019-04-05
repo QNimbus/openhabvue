@@ -17,9 +17,9 @@ import { arrayToObject } from '../_helpers';
 const dbVersion = 3;
 
 const dataStructures = [
-  { id: 'bindings', uri: 'rest/bindings', key: 'id', onstart: true, label: 'Bindings' },
-  { id: 'items', uri: 'rest/items', key: 'name', onstart: true, label: 'Items' }, // Removed: ?metadata=.* from uri
-  { id: 'things', uri: 'rest/things', key: 'UID', onstart: true, label: 'Things' },
+  // { id: 'bindings', uri: 'rest/bindings', key: 'id', onstart: true, label: 'Bindings' },
+  { id: 'items', uri: 'rest/items?metadata=.*', key: 'name', onstart: true, label: 'Items' }, // Removed: ?metadata=.* from uri
+  // { id: 'things', uri: 'rest/things', key: 'UID', onstart: true, label: 'Things' },
 ];
 
 const dataStructuresObj = arrayToObject(dataStructures, 'id');
