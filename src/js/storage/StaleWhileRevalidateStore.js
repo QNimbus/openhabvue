@@ -36,6 +36,9 @@ export class StaleWhileRevalidateStore extends EventTarget {
     this.connected = false;
     this.activeQueries = {};
     this.storeName = storeName;
+
+    this.expireDurationMS = 1000 * 60 * 60; // 1 hour cache for `getAll`
+    this.lastRefresh = {}; // Will contain entries like url:time where time is Date.now()-like.
   }
 
   /**
@@ -291,9 +294,16 @@ export class StaleWhileRevalidateStore extends EventTarget {
       .catch(error => {
         throw error;
       })
-      .finally(() => delete this.activeQueries[uri]);
+      .finally(() => {
+        delete this.activeQueries[uri];
+        this.lastRefresh[uri] = Date.now();
+      });
 
     return this.activeQueries[uri];
+  }
+
+  hasCacheExpired(uri) {
+    return !!this.lastRefresh[uri] && this.lastRefresh[uri] + this.expireDurationMS < Date.now();
   }
 
   /**
@@ -305,7 +315,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
    * @returns
    * @memberof StaleWhileRevalidateStore
    */
-  async get(storeName, objectID, options = {}) {
+  get(storeName, objectID, options = {}) {
     let dataStoreEntry;
     let newEntry;
     try {
@@ -314,7 +324,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
       const uri = dataStructuresObj[storeName].uri;
 
       // Get current value from datastore
-      dataStoreEntry = await store.get(objectID);
+      dataStoreEntry = store.get(objectID);
 
       // Query REST API for actual/current state
       newEntry = this.queryRESTAPI(`${uri}/${objectID}`)
@@ -327,7 +337,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
       console.warn('Failed to read', storeName, objectID);
       dataStoreEntry = null;
     } finally {
-      return newEntry || Promise.resolve(dataStoreEntry);
+      return dataStoreEntry || newEntry;
     }
   }
 
@@ -339,16 +349,24 @@ export class StaleWhileRevalidateStore extends EventTarget {
    * @returns
    * @memberof StaleWhileRevalidateStore
    */
-  async getAll(storeName, options = {}) {
+  getAll(storeName, options = {}) {
     let dataStoreEntries;
     let newEntries;
+
+    options = !!options ? options : {};
+    const { forceRefresh = false } = options;
     try {
       const transaction = this.db.transaction(storeName, 'readonly');
       const store = transaction.store;
       const uri = dataStructuresObj[storeName].uri;
 
       // Get current values from datastore
-      dataStoreEntries = await store.getAll();
+      dataStoreEntries = store.getAll();
+
+      // console.log(`hasCacheExpired(${uri}) = ${this.hasCacheExpired(uri)}`);
+      // if (!this.hasCacheExpired(uri) && !forceRefresh) {
+      //   return dataStoreEntries;
+      // }
 
       // Query REST API for actual/current state
       newEntries = this.queryRESTAPI(`${uri}`)
@@ -361,7 +379,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
       console.warn('Failed to read', storeName, error);
       dataStoreEntries = null;
     } finally {
-      return newEntries || Promise.resolve(dataStoreEntries);
+      return dataStoreEntries || newEntries;
     }
   }
 

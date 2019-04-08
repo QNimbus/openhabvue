@@ -105,6 +105,7 @@ class OHListBind extends AbstractBinding {
     this.target.start(this.modeladapter);
 
     store.addEventListener('connectionEstablished', this.datastoreConnected.bind(this));
+    store.addEventListener('connecting', this.datastoreConnecting.bind(this));
     store.addEventListener('connectionLost', this.datastoreDisconnected.bind(this));
 
     if (store.connected) this.datastoreConnected();
@@ -113,14 +114,21 @@ class OHListBind extends AbstractBinding {
 
   stopBinding() {
     store.removeEventListener('connectionEstablished', this.datastoreConnected.bind(this));
+    store.removeEventListener('connecting', this.datastoreConnecting.bind(this));
     store.removeEventListener('connectionLost', this.datastoreDisconnected.bind(this));
   }
 
   datastoreConnected(event) {
+    console.log(`Connected!`);
     this.modeladapter.getAll();
   }
 
+  datastoreConnecting(event) {
+    console.log(`Connecting...`);
+  }
+
   datastoreDisconnected(event) {
+    console.log(`Not connected...`);
   }
 
   listEntryChanged(event) {

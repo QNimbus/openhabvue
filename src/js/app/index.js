@@ -18,4 +18,7 @@ import { StorageConnector } from './Store';
 featureDetection_fetch();
 featureDetection_worker();
 
-export const store = new StorageConnector();
+const store = new StorageConnector();
+store.connect();
+
+export { store };

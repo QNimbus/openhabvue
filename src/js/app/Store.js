@@ -25,18 +25,21 @@ export class StorageConnector extends EventTarget {
     this.queue = new MessageQueue(this);
 
     // Configure worker thread (prefer SharedWorker over dedicated Worker)
-    this.worker = shared
-      ? new SharedWorker('js/storage-worker.js', { name: 'Storage Worker (shared)' })
-      : new Worker('js/storage-worker.js', { name: 'Storage Worker' });
+    this.worker = shared ? new SharedWorker('js/storage-worker.js', { name: 'Storage Worker (shared)' }) : new Worker('js/storage-worker.js', { name: 'Storage Worker' });
 
     this.worker.port instanceof MessagePort ? (this.port = this.worker.port) : (this.port = this.worker);
 
     // Setup event handlers
     this.worker.onerror = this.error.bind(this);
     this.port.onmessage = this.incomingMessage.bind(this);
+  }
 
+  connect() {
     // Initialize worker datastore connection
-    this.postMessage({ type: 'connect', host: 'rancher.home.besqua.red', port: '18080' });
+    let msg = { type: 'connect', host: 'rancher.home.besqua.red', port: '18080' };
+
+    this.postMessage(msg);
+    this.dispatchEvent(new CustomEvent('connecting', { detail: msg }));
   }
 
   /**
