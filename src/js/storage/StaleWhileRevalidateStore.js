@@ -1,10 +1,15 @@
 /**
- * TODO: Summary. (use period)
+ * Interface to IDBDatabase instance for storing openHAB items, things, etc
  *
- * TODO: This class provides an interface between the IndeDB datastore and the client.
+ * This class provides an interface between the IndexDB datastore and the client.
  * It uses the 'stale-while-revalidate' pattern. The stale-while-revalidate pattern allows you
  * to respond the request as quickly as possible with a cached response if available,
  * falling back to the network request if it’s not cached. The network request is then used to update the cache.
+ *
+ * The database initializes its data by performing a REST API query to the openHAB instance and listens
+ * for SSE (server-side-events) to perform mutations on the dataset to keep it in sync with the openHAB state.
+ *
+ * It emits the following events: connecting, connectionLost, connectionEstablished, storeItemRemoved, storeItemAdded, storeItemChanged
  *
  * @link   https://github.com/QNimbus/openhabvue/blob/dev/src/js/storage/StaleWhileRevalidateStore.js
  * @file   This files defines the StaleWhileRevalidateStore class.
@@ -19,7 +24,7 @@ import { openDB } from 'idb';
 import { isEqual } from 'lodash-es';
 
 // Local imports
-import { isIterable, arrayToObject, customFetch } from '../_helpers';
+import { isIterable, arrayToObject, customFetch, FetchException, CustomException } from '../_helpers';
 import { dbVersion, dataStructures, dataStructuresObj } from './OpenHabStorageModel';
 
 /**
@@ -36,6 +41,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
     this.connected = false;
     this.activeQueries = {};
     this.storeName = storeName;
+    this.db = undefined;
 
     this.expireDurationMS = 1000 * 60 * 60; // 1 hour cache for `getAll`
     this.lastRefresh = {}; // Will contain entries like url:time where time is Date.now()-like.
@@ -61,6 +67,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
    * @param {string} [host='localhost']
    * @param {number} [port=8080]
    * @returns
+   * @throws {FetchException} Throws exception when unable to connect to REST API or when receiving invalid response
    * @memberof StaleWhileRevalidateStore
    */
   async connect(host = 'localhost', port = 8080) {
@@ -70,6 +77,9 @@ export class StaleWhileRevalidateStore extends EventTarget {
       delete this.db;
     }
 
+    this.dispatchEvent(new CustomEvent('connecting', { detail: this.host }));
+
+    this.connected = false;
     this.host = host;
     this.port = port;
     this.db = await openDB(this.storeName, dbVersion, {
@@ -81,7 +91,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
         for (let dataStructure of dataStructures) {
           if (dataStructure.key) {
             db.createObjectStore(dataStructure.id, {
-              keyPath: dataStructure.key,
+              keyPath: dataStructure.key
             });
           } else {
             db.createObjectStore(dataStructure.id, { autoIncrement: true });
@@ -93,7 +103,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
       },
       blocking() {
         console.warn('This connection is blocking a future version of the database from opening.');
-      },
+      }
     }).catch(error => {
       console.error(error);
     });
@@ -104,29 +114,26 @@ export class StaleWhileRevalidateStore extends EventTarget {
       .filter(item => item.onstart)
       .map(item =>
         customFetch(`${restURL}/${item.uri}`)
+          .then(response => (response ? response.json() : response))
+          .then(json => (json ? this.initDatastore(item.id, json) : json))
           .catch(error => {
-            console.warn(`Failed to fetch ${restURL}/${item.uri}`, error);
-          })
-          .then(response => response.json())
-          .then(json => this.initDatastore(item.id, json))
-          .catch(error => {
-            console.warn('Failed to fill', item.id, error);
+            if (error.constructor === FetchException) {
+              let errorMessage = `Failed to fetch ${restURL}/${item.uri}`;
+              throw new FetchException(errorMessage, error);
+            } else {
+              let errorMessage = `Failed to fill '${item.id}'`;
+              throw new CustomException(errorMessage, item, error);
+            }
           })
       );
 
     // Wait for all requests (promises) to complete and register SSE
-    return Promise.all(requests)
-      .then(() => {
-        this.eventSource = new EventSource(`${restURL}/rest/events`);
-        this.eventSource.onmessage = this.sseMessageReceived.bind(this);
-        this.eventSource.onerror = this.sseError.bind(this);
-        this.eventSource.onopen = this.sseOpen.bind(this);
-      })
-      .catch(error => {
-        this.connected = false;
-        this.dispatchEvent(new CustomEvent('connectionLost', { detail: { type: 404, message: error.toString() } }));
-        throw error;
-      });
+    return Promise.all(requests).then(() => {
+      this.eventSource = new EventSource(`${restURL}/rest/events`);
+      this.eventSource.onmessage = this.sseMessageReceived.bind(this);
+      this.eventSource.onerror = this.sseError.bind(this);
+      this.eventSource.onopen = this.sseOpen.bind(this);
+    });
   }
 
   /**
@@ -180,6 +187,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
       this.connected = false;
       console.error(`Connection lost to http://${this.host}:${this.port}`);
       this.dispatchEvent(new CustomEvent('connectionLost', { detail: { type: 404, message: error.toString() } }));
+      this.eventSource.close();
     } else {
       throw error;
     }
@@ -300,6 +308,10 @@ export class StaleWhileRevalidateStore extends EventTarget {
       });
 
     return this.activeQueries[uri];
+  }
+
+  isConnected() {
+    return this.connected;
   }
 
   hasCacheExpired(uri) {

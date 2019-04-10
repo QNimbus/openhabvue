@@ -21,6 +21,7 @@
     "gulp-eslint": "^5.0.0",
     "gulp-load-plugins": "^1.5.0",
     "gulp-open": "^3.0.1",
+    "gulp-real-favicon": "^0.3.2",
     "gulp-rename": "^1.4.0",
     "gulp-rollup-each": "^3.0.0",
     "gulp-sass": "^4.0.2",

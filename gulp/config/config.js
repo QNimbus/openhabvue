@@ -17,6 +17,11 @@ module.exports = {
       root: './src/components',
       glob: '*.js',
     },
+    favicons: {
+      masterPicture: './src/images/icons/siteIcon.png',
+      dest: './dist/images/icons',
+      urlPath: '/images/icons',
+    },
     html: {
       root: './src/html',
       glob: '**/*.html',

@@ -83,7 +83,7 @@ export async function customFetch(input, init) {
     headers: headers,
     signal: controller.signal,
     validateHttpsCertificates: false,
-    muteHttpExceptions: true,
+    muteHttpExceptions: true
   });
 
   setTimeout(() => {
@@ -91,8 +91,22 @@ export async function customFetch(input, init) {
   }, FETCH_TIMEOUT);
 
   const response = await fetch(input, init).catch(error => {
-    console.error(`Fetch error: ${error.message}`);
-    throw error instanceof DOMException && error.name === 'AbortError' ? `Timeout after ${FETCH_TIMEOUT / 1000}s` : error;
+    let customError;
+    switch (error.constructor) {
+      case DOMException: {
+        customError = new FetchException(`Timeout after ${FETCH_TIMEOUT / 1000}s`);
+        break;
+      }
+      case TypeError: {
+        customError = new FetchException(`Failed to fetch`, error);
+        break;
+      }
+      default: {
+        customError = error;
+        break;
+      }
+    }
+    throw customError;
   });
 
   if (!response.ok) {

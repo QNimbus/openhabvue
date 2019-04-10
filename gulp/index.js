@@ -6,7 +6,7 @@ const plugins = require('gulp-load-plugins')();
 const config = require('./config/config');
 
 var tasks = {};
-var taskNames = ['clean', 'copy', 'bundle', 'bundleSingle', 'serve', 'openBrowser', 'eslint', 'compileStyles', 'reload'];
+var taskNames = ['clean', 'copy', 'bundle', 'bundleSingle', 'serve', 'openBrowser', 'eslint', 'compileStyles', 'reload', 'createFolders', 'generateFavicons', 'injectFavicons'];
 
 /**
  * Helper function for better error handling during Gulp tasks
@@ -52,14 +52,17 @@ module.exports = gulp => {
     task(`__${taskName}`, taskObject);
   });
 
-  gulp.task('__watch', function(done) {
+  gulp.task('watch', function(done) {
     gulp.watch(['./src/html/**/*.html', './src/partials/**/*.html'], series(buildHTML, reload));
     gulp.watch(['./src/scss/**/*.scss'], series(buildCSS, reload));
     gulp.watch(['./src/js/**/*.js'], series(buildJS, reload));
+    gulp.watch(['./src/images/icons/siteIcon.png'], series(injectFavicons, reload));
     done();
   });
 
   //let preBuild = [tasks.clean, tasks.eslint];
+  let injectFavicons = [tasks.createFolders, tasks.injectFavicons];
+  let generateFavicons = [tasks.generateFavicons];
   let preBuild = [tasks.clean];
   let buildHTML = [tasks.copy];
   let buildCSS = [tasks.compileStyles];
@@ -70,8 +73,8 @@ module.exports = gulp => {
 
   // Actual task definition
 
-  tasks.build = task('build', series(preBuild, parallel(build)));
-  tasks.dev = task('dev', series(parallel(preBuild), parallel(build), series(serve)));
-
-  tasks.watchdev = task('watchdev', series(parallel(preBuild), parallel(build), series(serve), series('__watch')));
+  tasks.build = task('build', series(preBuild, series(generateFavicons, injectFavicons), parallel(build)));
+  tasks.dev = task('dev', series(preBuild, series(injectFavicons), parallel(build), series(serve)));
+  task.favicons = task('favicons', series(generateFavicons, injectFavicons));
+  tasks.watchdev = task('watchdev', series(preBuild, series(injectFavicons), parallel(build), series(serve), series('watch')));
 };
