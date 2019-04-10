@@ -23,19 +23,27 @@ const store = new StaleWhileRevalidateStore();
 
 store.addEventListener('connecting', event => {
   console.log(`connecting...`);
-  console.log(event);
+  console.debug(event);
 });
 
 store.addEventListener('connectionEstablished', event => {
   console.log(`connectionEstablished...`);
-  console.log(event);
+  console.debug(event);
 });
 
 store.addEventListener('connectionLost', event => {
   console.log(`connectionLost...`);
-  console.log(event);
+  console.debug(event);
 });
 
-store.connect('rancher.home.besqua.red', 1800);
+store.connect('rancher.home.besqua.red', 18080).catch((error) => {
+
+});
+
+// try {
+//   store.connect('rancher.home.besqua.red', 1800);
+// } catch (error) {
+
+// }
 
 export { store };
