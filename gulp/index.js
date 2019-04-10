@@ -56,13 +56,13 @@ module.exports = gulp => {
     gulp.watch(['./src/html/**/*.html', './src/partials/**/*.html'], series(buildHTML, reload));
     gulp.watch(['./src/scss/**/*.scss'], series(buildCSS, reload));
     gulp.watch(['./src/js/**/*.js'], series(buildJS, reload));
-    gulp.watch(['./src/images/icons/siteIcon.png'], series(injectFavicons, reload));
+    gulp.watch(['./src/images/icons/siteIcon.png'], series(generateFavicons, injectFavicons, reload));
     done();
   });
 
   //let preBuild = [tasks.clean, tasks.eslint];
-  let injectFavicons = [tasks.createFolders, tasks.injectFavicons];
-  let generateFavicons = [tasks.generateFavicons];
+  let injectFavicons = [tasks.injectFavicons];
+  let generateFavicons = [tasks.createFolders, tasks.generateFavicons];
   let preBuild = [tasks.clean];
   let buildHTML = [tasks.copy];
   let buildCSS = [tasks.compileStyles];
@@ -74,7 +74,7 @@ module.exports = gulp => {
   // Actual task definition
 
   tasks.build = task('build', series(preBuild, series(generateFavicons, injectFavicons), parallel(build)));
-  tasks.dev = task('dev', series(preBuild, series(injectFavicons), parallel(build), series(serve)));
+  tasks.dev = task('dev', series(preBuild, series(generateFavicons, injectFavicons), parallel(build), series(serve)));
   task.favicons = task('favicons', series(generateFavicons, injectFavicons));
-  tasks.watchdev = task('watchdev', series(preBuild, series(injectFavicons), parallel(build), series(serve), series('watch')));
+  tasks.watchdev = task('watchdev', series(preBuild, series(generateFavicons, injectFavicons), parallel(build), series(serve), series('watch')));
 };
