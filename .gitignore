@@ -1,2 +1,7 @@
+# Folders
 node_modules/
 dist/
+
+# Files
+src/partials/favicons.html
+gulp/config/faviconData.json
