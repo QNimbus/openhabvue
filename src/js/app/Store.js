@@ -34,12 +34,12 @@ export class StorageConnector extends EventTarget {
     this.port.onmessage = this.incomingMessage.bind(this);
   }
 
-  connect() {
+  connect(host = 'localhost', port = 8080) {
     // Initialize worker datastore connection
-    let msg = { type: 'connect', host: 'rancher.home.besqua.red', port: '18080' };
+    let msg = { type: 'connect', host: host, port: port };
 
-    this.postMessage(msg);
     this.dispatchEvent(new CustomEvent('connecting', { detail: msg }));
+    this.postMessage(msg);
   }
 
   /**
@@ -91,20 +91,20 @@ export class StorageConnector extends EventTarget {
       case 'storeItemChanged':
       case 'storeItemRemoved':
       case 'storeItemAdded':
-      case 'connect': {
-        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+      case 'connecting': {
+        // console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
         this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
         break;
       }
       case 'connectionEstablished': {
         this.connected = true;
-        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+        // console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
         this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
         break;
       }
       case 'connectionLost': {
         this.connected = false;
-        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+        // console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
         this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
         break;
       }
@@ -113,7 +113,7 @@ export class StorageConnector extends EventTarget {
         if (!data.type) {
           console.warn(`Database event received without 'type' property`, data);
         } else {
-          console.debug(`StorageConnector.incomingMessage: dispatchEvent `, data.type);
+          // console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
           this.dispatchEvent(new CustomEvent('message', { detail: data.msg }));
         }
         break;
@@ -131,7 +131,7 @@ export class StorageConnector extends EventTarget {
     let port = this.port;
     // If postMessage gets called before the SharedWorker has a connection it cannot be called
     if (port && typeof port.postMessage === 'function') {
-      console.debug(`StorageConnector.postMessage: `, message);
+      // console.debug(`StorageConnector.postMessage: `, message);
       port.postMessage(message);
     }
   }

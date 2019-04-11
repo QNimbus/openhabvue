@@ -6,7 +6,7 @@ const plugins = require('gulp-load-plugins')();
 const config = require('./config/config');
 
 var tasks = {};
-var taskNames = ['clean', 'copy', 'bundle', 'bundleSingle', 'serve', 'openBrowser', 'eslint', 'compileStyles', 'reload', 'createFolders', 'generateFavicons', 'injectFavicons'];
+var taskNames = ['clean', 'copy', 'copyTests', 'bundle', 'bundleSingle', 'serve', 'openBrowser', 'eslint', 'compileStyles', 'reload', 'createFolders', 'generateFavicons', 'injectFavicons'];
 
 /**
  * Helper function for better error handling during Gulp tasks
@@ -57,11 +57,13 @@ module.exports = gulp => {
     gulp.watch(['./src/scss/**/*.scss'], series(buildCSS, reload));
     gulp.watch(['./src/js/**/*.js'], series(buildJS, reload));
     gulp.watch(['./src/images/icons/siteIcon.png'], series(generateFavicons, injectFavicons, reload));
+    gulp.watch(['./test/**/*'], series(copyTests, reload));
     done();
   });
 
   //let preBuild = [tasks.clean, tasks.eslint];
   let injectFavicons = [tasks.injectFavicons];
+  let copyTests = [tasks.copyTests];
   let generateFavicons = [tasks.createFolders, tasks.generateFavicons];
   let preBuild = [tasks.clean];
   let buildHTML = [tasks.copy];

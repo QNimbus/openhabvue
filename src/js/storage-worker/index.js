@@ -1,10 +1,10 @@
 import { StaleWhileRevalidateStore } from '../storage/StaleWhileRevalidateStore';
 
 /**
- * TODO: Summary. (use period)
+ * Proxy for the 'StaleWhileRevalidateStore' class.
  *
- * TODO: StorageWorker class provides an interface between the SharedWorker/Worker instance (public class member)
- * and the StorageConnecter instance in the client (browser). This worker will handle the communication
+ * StorageWorker class provides an interface between the StaleWhileRevalidateStore instance (public class member)
+ * and the StorageConnector instance in the client (browser). This worker will handle the communication
  * with the IndexDB datastore where OpenHAB entities are stored and updated upon incoming events.
  *
  * @link   https://github.com/QNimbus/openhabvue/blob/dev/src/js/storage-worker/index.js
@@ -40,6 +40,9 @@ class StorageWorker {
     this.store.addEventListener('storeItemRemoved', event => {
       this.postMessage({ type: event.type, msg: event.detail });
     });
+    this.store.addEventListener('connecting', event => {
+      this.postMessage({ type: event.type, msg: event.detail });
+    });
     this.store.addEventListener('connectionEstablished', event => {
       this.connected = true;
       this.postMessage({ type: event.type, msg: event.detail });
@@ -68,10 +71,14 @@ class StorageWorker {
           break;
         }
         case 'get': {
-          if (data.objectID) {
-            result = await this.store.get(data.storeName, data.objectID, data.options);
-          } else {
-            result = await this.store.getAll(data.storeName, data.options);
+          try {
+            if (data.objectID) {
+              result = await this.store.get(data.storeName, data.objectID, data.options);
+            } else {
+              result = await this.store.getAll(data.storeName, data.options);
+            }
+          } catch (error) {
+            console.error(error);
           }
           this.postMessage({ type: data.type, result: result, msgID: data.msgID });
           break;
@@ -87,10 +94,29 @@ class StorageWorker {
   }
 
   postMessage(message) {
+    // Utility method to remove 'window' from cloned object
+    function cloneObject(obj) {
+      var clone = {};
+      for (var i in obj) {
+        if (typeof obj[i] === 'object' && obj[i] != null) {
+          if ('' + obj[i] === '[object Window]') {
+            delete obj[i];
+            continue;
+          }
+
+          clone[i] = cloneObject(obj[i]);
+        } else clone[i] = obj[i];
+      }
+      return clone;
+    }
+
+    // to avoid weird error causing by window object by JSON.stringify() execution.
+    const clone = cloneObject(message);
+
     let port = this.port;
     if (port && typeof port.postMessage === 'function') {
       console.debug(`storage-worker.postMessage: `, message);
-      port.postMessage(message);
+      port.postMessage(JSON.parse(JSON.stringify(clone)));
     }
   }
 }

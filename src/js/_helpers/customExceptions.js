@@ -14,6 +14,9 @@ export class NotSupportedException extends CustomException {
 export class FetchException extends CustomException {
   constructor(message, ...metadata) {
     super(message, metadata);
+
+    const [status] = metadata;
+
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, FetchException);
     }

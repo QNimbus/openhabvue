@@ -1,7 +1,7 @@
 /**
  * Interface to IDBDatabase instance for storing openHAB items, things, etc
  *
- * This class provides an interface between the IndexDB datastore and the client.
+ * This class provides an interface between the IndexedDB datastore and the client.
  * It uses the 'stale-while-revalidate' pattern. The stale-while-revalidate pattern allows you
  * to respond the request as quickly as possible with a cached response if available,
  * falling back to the network request if it’s not cached. The network request is then used to update the cache.
@@ -21,11 +21,12 @@
 
 // External imports
 import { openDB } from 'idb';
-import { isEqual } from 'lodash-es';
+import { isEqual, defaults } from 'lodash-es';
 
 // Local imports
 import { isIterable, arrayToObject, customFetch, FetchException, CustomException } from '../_helpers';
 import { dbVersion, dataStructures, dataStructuresObj } from './OpenHabStorageModel';
+import { extractFromArray } from '../_helpers/helpers';
 
 /**
  *
@@ -48,34 +49,38 @@ export class StaleWhileRevalidateStore extends EventTarget {
   }
 
   /**
-   *
+   * Disposes StaleWhileRevalidateStore; close IndexedDB database connection and closing EventSource connection
    *
    * @memberof StaleWhileRevalidateStore
    */
   dispose() {
     if (this.db) {
       this.db.close();
+      delete this.db;
     }
     if (this.eventSource) {
+      ['onerror', 'onmessage', 'onopen'].forEach(eventHandler => {
+        this.eventSource[eventHandler] = null;
+      });
       this.eventSource.close();
     }
+    this.activeQueries = {};
   }
 
   /**
-   *
+   * Connects to local IndexedDB database, initializes the database with values using the openHAB REST API and
+   * starts an EventSource instance to capture all subsequent incomming events to keep the IndexedDB database in
+   * sync with the openHAB instance.
    *
    * @param {string} [host='localhost']
    * @param {number} [port=8080]
    * @returns
    * @throws {FetchException} Throws exception when unable to connect to REST API or when receiving invalid response
+   * @throws {CustomException} Throws exception when unable to fill the IndexedDB datastore
    * @memberof StaleWhileRevalidateStore
    */
   async connect(host = 'localhost', port = 8080) {
-    // Delete previous database if it exists
-    if (this.db) {
-      this.db.close();
-      delete this.db;
-    }
+    this.dispose();
 
     this.dispatchEvent(new CustomEvent('connecting', { detail: this.host }));
 
@@ -137,7 +142,8 @@ export class StaleWhileRevalidateStore extends EventTarget {
   }
 
   /**
-   *
+   * This method processes incomming SSE messages and calls corresponding methods for each event received to
+   * keep the IDB datastore in sync with the openHAB instance. It is bound to the EventSource.onmessage handler.
    *
    * @param {*} message
    * @returns
@@ -154,30 +160,48 @@ export class StaleWhileRevalidateStore extends EventTarget {
     }
 
     switch (data.type) {
+      // Additions
+      case 'ItemAddedEvent': {
+        const newItem = JSON.parse(data.payload);
+        this.insert(storeName, newItem);
+        return;
+      }
       // Updates
       case 'ItemUpdatedEvent': {
         const [updatedItem, previousItem] = JSON.parse(data.payload);
         this.insert(storeName, updatedItem);
-        break;
+        return;
       }
       // State changed
       case 'ItemStateEvent': {
         const newState = JSON.parse(data.payload);
         this.update(storeName, itemName, fieldName, newState.value);
-        break;
+        return;
+      }
+      // Removals
+      case 'ItemRemovedEvent': {
+        const item = JSON.parse(data.payload);
+        this.remove(storeName, item);
+        return;
       }
       // Ignored events
+      case 'InboxAddedEvent':
+      case 'InboxUpdatedEvent':
+      case 'ThingUpdatedEvent':
+      case 'GroupItemStateChangedEvent':
       case 'ItemStateChangedEvent':
       case 'ItemStatePredictedEvent':
       case 'ItemCommandEvent':
-      default: {
+      case 'ThingStatusInfoEvent':
+      case 'ThingStatusInfoChangedEvent': {
         return;
       }
     }
+    console.warn(`Unhandled SSE`, data);
   }
 
   /**
-   *
+   * Method bound to EventSource.onerror which handles EventSource errors.
    *
    * @param {*} error
    * @memberof StaleWhileRevalidateStore
@@ -185,27 +209,28 @@ export class StaleWhileRevalidateStore extends EventTarget {
   sseError(error) {
     if (this.eventSource.readyState !== 1) {
       this.connected = false;
-      console.error(`Connection lost to http://${this.host}:${this.port}`);
+      console.warn(`Connection lost to http://${this.host}:${this.port}`);
       this.dispatchEvent(new CustomEvent('connectionLost', { detail: { type: 404, message: error.toString() } }));
       this.eventSource.close();
     } else {
-      throw error;
+      console.warn(`SSE Error received from http://${this.host}:${this.port}: `, error);
     }
   }
 
   /**
-   *
+   * Method bound to EventSource.onopen which gets called when the EventSource instance has
+   * successfully established a connection with openHAB SSE.
    *
    * @param {*} message
    * @memberof StaleWhileRevalidateStore
    */
   sseOpen(message) {
     this.connected = true;
-    this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: this.host }));
+    this.dispatchEvent(new CustomEvent('connectionEstablished', { detail: { host: this.host, message: message } }));
   }
 
   /**
-   *
+   * Method clears existing IndexedDB datastore and inserts all object within jsonData into store with 'storeName'
    *
    * @param {*} storeName
    * @param {*} jsonData
@@ -239,7 +264,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
   }
 
   /**
-   *
+   * Method accepts a JSON object and inserts/updates into store with name 'storeName'.
    *
    * @param {*} storeName
    * @param {*} jsonData
@@ -285,10 +310,12 @@ export class StaleWhileRevalidateStore extends EventTarget {
   }
 
   /**
-   *
+   * Executes a REST API query. Times out after a while when no valid response has been received. If query is already running,
+   * it returns the promise of the original query instead of submitting a new query. To aid in the caching of the data,
+   * a timestamp is recorded for when the query was last run.
    *
    * @param {*} uri
-   * @returns
+   * @returns Promise
    * @memberof StaleWhileRevalidateStore
    */
   queryRESTAPI(uri) {
@@ -310,16 +337,30 @@ export class StaleWhileRevalidateStore extends EventTarget {
     return this.activeQueries[uri];
   }
 
+  /**
+   * Returns true/false depening on SSE connection state.
+   *
+   * @returns boolean
+   * @memberof StaleWhileRevalidateStore
+   */
   isConnected() {
     return this.connected;
   }
 
-  hasCacheExpired(uri) {
-    return !!this.lastRefresh[uri] && this.lastRefresh[uri] + this.expireDurationMS < Date.now();
+  /**
+   * Returns true/false depending on the age of the query
+   *
+   * @param {*} uri
+   * @returns boolean
+   * @memberof StaleWhileRevalidateStore
+   */
+  isCacheStillValid(uri) {
+    return this.lastRefresh[uri] !== undefined && this.lastRefresh[uri] + this.expireDurationMS > Date.now();
   }
 
   /**
-   *
+   * Method gets value from IndexedDB database and simultaneously performs an asynchronous REST query to the
+   * openHAB instance.
    *
    * @param {*} storeName
    * @param {*} objectID
@@ -330,23 +371,29 @@ export class StaleWhileRevalidateStore extends EventTarget {
   get(storeName, objectID, options = {}) {
     let dataStoreEntry;
     let newEntry;
+
+    defaults(options, {});
+
     try {
       const transaction = this.db.transaction(storeName, 'readonly');
       const store = transaction.store;
-      const uri = dataStructuresObj[storeName].uri;
+      const metaData = dataStructuresObj[storeName];
+      const uriParts = metaData.uri.split('?');
+      const uri = metaData.allowSingleItem === true ? `${uriParts[0]}/${objectID}?${uriParts[1]}` : `${uriParts[0]}?${uriParts[1]};`;
 
       // Get current value from datastore
       dataStoreEntry = store.get(objectID);
 
       // Query REST API for actual/current state
-      newEntry = this.queryRESTAPI(`${uri}/${objectID}`)
+      newEntry = this.queryRESTAPI(uri)
+        .then(jsonData => (metaData.allowSingleItem === true ? jsonData : extractFromArray(jsonData, metaData.key, objectID)))
+        .then(jsonData => this.insert(storeName, jsonData))
         .catch(error => {
-          console.warn(`REST API query failed for ${uri}/${objectID}`);
-          throw error;
-        })
-        .then(jsonData => this.insert(storeName, jsonData));
+          console.warn(`REST API query failed for ${uri}: `, error);
+          return Promise.resolve({ result: undefined });
+        });
     } catch (error) {
-      console.warn('Failed to read', storeName, objectID);
+      console.warn(`Failed to read ${storeName}:${objectID}: `, error);
       dataStoreEntry = null;
     } finally {
       return dataStoreEntry || newEntry;
@@ -365,30 +412,32 @@ export class StaleWhileRevalidateStore extends EventTarget {
     let dataStoreEntries;
     let newEntries;
 
-    options = !!options ? options : {};
-    const { forceRefresh = false } = options;
+    defaults(options, {
+      forceRefresh: false
+    });
+
     try {
       const transaction = this.db.transaction(storeName, 'readonly');
       const store = transaction.store;
-      const uri = dataStructuresObj[storeName].uri;
+      const metaData = dataStructuresObj[storeName];
+      const uri = metaData.uri;
 
       // Get current values from datastore
       dataStoreEntries = store.getAll();
 
-      // console.log(`hasCacheExpired(${uri}) = ${this.hasCacheExpired(uri)}`);
-      // if (!this.hasCacheExpired(uri) && !forceRefresh) {
-      //   return dataStoreEntries;
-      // }
+      if (this.isCacheStillValid(uri) || options.forceRefresh) {
+        return dataStoreEntries;
+      }
 
       // Query REST API for actual/current state
       newEntries = this.queryRESTAPI(`${uri}`)
+        .then(jsonData => this.insertAll(storeName, jsonData))
         .catch(error => {
-          console.warn(`REST API query failed for ${uri}`);
-          throw error;
-        })
-        .then(jsonData => this.insertAll(storeName, jsonData));
+          console.warn(`REST API query failed for ${uri}: `, error);
+          return Promise.resolve({ result: undefined });
+        });
     } catch (error) {
-      console.warn('Failed to read', storeName, error);
+      console.warn(`Failed to read ${storeName}: `, error);
       dataStoreEntries = null;
     } finally {
       return dataStoreEntries || newEntries;
@@ -412,7 +461,8 @@ export class StaleWhileRevalidateStore extends EventTarget {
     try {
       const transaction = this.db.transaction(storeName, 'readwrite');
       const store = transaction.store;
-      const keyName = dataStructuresObj[storeName].key;
+      const metaData = dataStructuresObj[storeName];
+      const keyName = metaData.key;
       const oldEntry = await store.get(newEntry[keyName]);
 
       await store.put(newEntry);
@@ -484,7 +534,8 @@ export class StaleWhileRevalidateStore extends EventTarget {
     try {
       const transaction = this.db.transaction(storeName, 'readwrite');
       const store = transaction.objectStore(storeName);
-      const keyName = dataStructuresObj[storeName].key;
+      const metaData = dataStructuresObj[storeName];
+      const keyName = metaData.key;
       const key = entry[keyName];
 
       await store.delete(key);

@@ -70,6 +70,19 @@ export function arrayToObject(array, keyField) {
  *
  *
  * @export
+ * @param {*} array
+ * @param {*} key
+ * @param {*} objectKey
+ */
+export function extractFromArray(array, key, objectKey) {
+  const items = arrayToObject(array, key);
+  return items[objectKey] ? items[objectKey] : {};
+}
+
+/**
+ *
+ *
+ * @export
  * @param {*} url
  * @returns
  */
