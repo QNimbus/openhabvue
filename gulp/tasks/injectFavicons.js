@@ -9,7 +9,7 @@ let injectFaviconsTask = function(gulp, config, plugins, wrapFunc) {
   const realFavicon = plugins.realFavicon;
   let func = wrapFunc(function(success, error) {
     gulp
-      .src(['./src/partials/favicons.html'])
+      .src(['./src/partials/favicons.html'], { allowEmpty: true })
       .pipe(realFavicon.injectFaviconMarkups(JSON.parse(fs.readFileSync(FAVICON_DATA_FILE)).favicon.html_code))
       .pipe(gulp.dest('./src/partials'))
       .on('error', error)

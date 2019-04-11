@@ -5,7 +5,7 @@ const del = require('del');
 let cleanTask = function(gulp, config, plugins, wrapFunc) {
   let func = wrapFunc(function(success, error) {
     try {
-      del(['./dist/**/*']);
+      del.sync(['./dist/**/*']);
     } catch (e) {
       error(e);
     }
