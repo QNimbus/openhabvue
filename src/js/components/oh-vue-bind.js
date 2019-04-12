@@ -1,47 +1,9 @@
 import { store } from './app.js';
 
-class AbstractBinding extends HTMLElement {
-  constructor(store) {
-    if (new.target === AbstractBinding) {
-      throw new TypeError('Cannot construct AbstractBinding instances directly');
-    }
+// Local imports
+import { BindingBase } from './bindingbase';
 
-    super();
-    this.store = store;
-
-    // Add events listeners
-    this.store.addEventListener(
-      'storeItemChanged',
-      (event => {
-        this.listEntryChanged(event.detail);
-      }).bind(this)
-    );
-  }
-
-  dispose() {
-    // Remove events listeners
-    this.store.removeEventListener(
-      'storeItemChanged',
-      (event => {
-        this.listEntryChanged(event.detail);
-      }).bind(this)
-    );
-  }
-
-  listEntryChanged(event) {
-    throw new TypeError(`Must override 'listEntryChanged' method`);
-  }
-
-  getValue(fieldName) {
-    throw new TypeError(`Must override 'getValue' method`);
-  }
-
-  setValue(fieldName, value) {
-    throw new TypeError(`Must override 'setValue' method`);
-  }
-}
-
-class OHListBind extends AbstractBinding {
+class OHListBind extends BindingBase {
   constructor() {
     super(store);
     this.style.display = 'none';
@@ -58,18 +20,25 @@ class OHListBind extends AbstractBinding {
   connectedCallback() {
     const bindingForID = this.getAttribute('for');
 
+    this.key = this.getAttribute('key');
     this.target = document.getElementById(bindingForID);
 
     if (!this.target) {
-      this.target = this.nextElementSibling;
+      if (!this.nextElementSibling) {
+        console.warn(`oh-vue-bind: Unable to find target element ('for' property or nextElementSibling)`);
+        return;
+      } else {
+        this.target = this.nextElementSibling;
+      }
     }
+
     if (!this.target.ok) {
       this.target.addEventListener('load', this.connectedCallback.bind(this), { once: true, passive: true });
       return;
     }
 
     const modelName = this.getAttribute('model');
-    import(`./${modelName}.js`)
+    import(`./datamodels/${modelName}.js`)
       .then(this.startBinding.bind(this))
       .catch(error => {
         console.warn(error);
@@ -100,9 +69,9 @@ class OHListBind extends AbstractBinding {
 
   startBinding(module) {
     this.module = module;
-    this.modeladapter = new module.ModelAdapter(this);
+    this.modelAdapter = new module.ModelAdapter(this);
 
-    this.target.start(this.modeladapter);
+    this.target.start(this.modelAdapter);
 
     store.addEventListener('connectionEstablished', this.datastoreConnected.bind(this));
     store.addEventListener('connecting', this.datastoreConnecting.bind(this));
@@ -118,29 +87,41 @@ class OHListBind extends AbstractBinding {
     store.removeEventListener('connectionLost', this.datastoreDisconnected.bind(this));
   }
 
-  datastoreConnected(event) {
-    console.log(`Connected!`);
-    this.modeladapter.getAll();
+  async datastoreConnected(event) {
+    console.debug(`Connected!`);
+    if (this.key) {
+      await this.modelAdapter.get(this.key);
+    } else {
+      await this.modelAdapter.getAll();
+    }
   }
 
   datastoreConnecting(event) {
-    console.log(`Connecting...`);
+    console.debug(`Connecting...`);
   }
 
   datastoreDisconnected(event) {
-    console.log(`Not connected...`);
+    console.debug(`Not connected...`);
   }
 
-  listEntryChanged(event) {
-    if (!this.modeladapter) return;
+  storeEntryChanged(event) {
+    if (!this.modelAdapter) return;
+
+    let entry = event.value;
+    let id = entry[this.modelAdapter.INDEX];
+
+    // Only change pre-existing entries
+    if (this.modelAdapter.hasKey(id)) {
+      this.modelAdapter.set(id, entry);
+    }
   }
 
   getValue(fieldName) {
-    return this.modeladapter[fieldName];
+    return this.modelAdapter[fieldName];
   }
 
   setValue(fieldName, value) {
-    this.modeladapter[fieldName] = value;
+    this.modelAdapter[fieldName] = value;
   }
 }
 

@@ -1,4 +1,5 @@
-import { StaleWhileRevalidateStore } from '../js/storage.js';
+// import { StaleWhileRevalidateStore } from '../js/storage.js';
+const StaleWhileRevalidateStore = require('../js/storage.js').StaleWhileRevalidateStore;
 
 const ASYNC_TIMEOUT = 6000;
 

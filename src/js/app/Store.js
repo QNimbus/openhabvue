@@ -92,19 +92,19 @@ export class StorageConnector extends EventTarget {
       case 'storeItemRemoved':
       case 'storeItemAdded':
       case 'connecting': {
-        // console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
         this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
         break;
       }
       case 'connectionEstablished': {
         this.connected = true;
-        // console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
         this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
         break;
       }
       case 'connectionLost': {
         this.connected = false;
-        // console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+        console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
         this.dispatchEvent(new CustomEvent(data.type, { detail: data.msg }));
         break;
       }
@@ -113,7 +113,7 @@ export class StorageConnector extends EventTarget {
         if (!data.type) {
           console.warn(`Database event received without 'type' property`, data);
         } else {
-          // console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
+          console.debug(`StorageConnector.incomingMessage: dispatchEvent ${data.type}`);
           this.dispatchEvent(new CustomEvent('message', { detail: data.msg }));
         }
         break;
@@ -131,7 +131,7 @@ export class StorageConnector extends EventTarget {
     let port = this.port;
     // If postMessage gets called before the SharedWorker has a connection it cannot be called
     if (port && typeof port.postMessage === 'function') {
-      // console.debug(`StorageConnector.postMessage: `, message);
+      console.debug(`StorageConnector.postMessage: `, message);
       port.postMessage(message);
     }
   }

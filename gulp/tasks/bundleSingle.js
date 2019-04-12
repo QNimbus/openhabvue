@@ -31,15 +31,6 @@ let bundleSingleTask = function(gulp, config, plugins, wrapFunc) {
       )
       .pipe(
         plugins.rename(path => {
-          let modulename = null;
-          // Input is: js/bundles/{bundle-name}/index.js. Output is: js/{bundle-name}.js
-          if (path.basename === 'index') {
-            path.basename = modulename || path.dirname;
-            path.dirname = '';
-          } else {
-            // Input is: node_modules/monaco-editor/esm/vs/language/json/json.worker.js. Output is: json.worker.js
-            path.dirname = '';
-          }
           console.log('Build: ' + path.basename);
           return path.basename;
         })

@@ -1,11 +1,11 @@
 import Vue from 'vue/dist/vue.esm.js';
 
-class OHVueList extends HTMLElement {
+// Local imports
+import { OHVueBase } from './oh-vue-base';
+
+class OHVueList extends OHVueBase {
   constructor() {
     super();
-
-    this.ok = false;
-    this.vue = undefined;
 
     // Create shadow DOM
     this.attachShadow({ mode: 'open' });
@@ -19,7 +19,7 @@ class OHVueList extends HTMLElement {
     this.itemTemplate = this.shadowRoot.querySelector('slot[name="item"]');
     this.mountElement = this.shadowRoot.querySelector('slot[name="app"]').assignedNodes()[0];
 
-    if (!this.itemTemplate || ! this.listTemplate) {
+    if (!this.itemTemplate || !this.listTemplate) {
       this.shadowRoot.innerHTML = '<div>No template slots given!</div>';
       return;
     }
@@ -46,16 +46,16 @@ class OHVueList extends HTMLElement {
       data: function() {
         return Object.assign(context, {
           message: '',
-          status: true,
+          status: true
         });
       },
       mounted: function() {
         this.$el.setAttribute('slot', 'app');
       },
       components: {
-        'oh-vue-list-item': this.createComponent(this.itemTemplate.cloneNode(true)),
+        'oh-vue-list-item': this.createComponent(this.itemTemplate.cloneNode(true))
       },
-      template: this.listTemplate,
+      template: this.listTemplate
     }).$mount(this.mountElement);
   }
 
@@ -67,11 +67,11 @@ class OHVueList extends HTMLElement {
     return {
       data: () => {
         return {
-          item: Object.assign({}, this.listitem), // A copy of the database item entry
+          item: Object.assign({}, this.listitem) // A copy of the database item entry
         };
       },
       props: ['listitem'],
-      template: template,
+      template: template
     };
   }
 }

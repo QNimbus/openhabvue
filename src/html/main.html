@@ -9,16 +9,28 @@
     <!-- <nav-ajax-page-load></nav-ajax-page-load> -->
     <header></header>
     <main>
-      <!-- <oh-vue-bind model="items"></oh-vue-bind>
+        <oh-vue-bind model="things"></oh-vue-bind>
+        <oh-vue-list>
+          <div slot="app"></div>
+          <template slot="list">
+            <ul slot="app">
+                <oh-vue-list-item v-for="thing in things" :key="thing.UID" :listitem="thing"></oh-vue-list-item>
+            </ul>
+          </template>
+          <template slot="item">
+              <li>{{ listitem.UID }}</li>
+          </template>
+        </oh-vue-list>
+      <!-- <oh-vue-bind model="items" key="FF_Office_Dimmer_Spotlights"></oh-vue-bind>
       <oh-vue-list>
         <div slot="app"></div>
         <template slot="list">
           <ul slot="app">
-              <oh-vue-list-item v-for="item in items" :key="item.id" :listitem="item"></oh-vue-list-item>
+              <oh-vue-list-item v-for="item in items" :key="item.name" :listitem="item"></oh-vue-list-item>
           </ul>
         </template>
         <template slot="item">
-            <li>{{listitem.name}}</li>
+            <li>{{ listitem.name }} : state = {{ listitem.state }}</li>
         </template>
       </oh-vue-list> -->
     </main>

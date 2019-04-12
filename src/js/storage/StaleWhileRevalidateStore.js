@@ -122,6 +122,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
           .then(response => (response ? response.json() : response))
           .then(json => (json ? this.initDatastore(item.id, json) : json))
           .catch(error => {
+            console.error(error);
             if (error.constructor === FetchException) {
               let errorMessage = `Failed to fetch ${restURL}/${item.uri}`;
               throw new FetchException(errorMessage, error);
@@ -192,6 +193,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
       case 'ItemStateChangedEvent':
       case 'ItemStatePredictedEvent':
       case 'ItemCommandEvent':
+      case 'ChannelTriggeredEvent':
       case 'ThingStatusInfoEvent':
       case 'ThingStatusInfoChangedEvent': {
         return;
@@ -372,7 +374,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
     let dataStoreEntry;
     let newEntry;
 
-    defaults(options, {});
+    options = defaults(options, {});
 
     try {
       const transaction = this.db.transaction(storeName, 'readonly');
@@ -412,7 +414,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
     let dataStoreEntries;
     let newEntries;
 
-    defaults(options, {
+    options= defaults(options, {
       forceRefresh: false
     });
 

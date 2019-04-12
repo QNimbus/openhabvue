@@ -13,6 +13,12 @@
 
 const QUEUE_ITEM_TIMEOUT = 5000;
 
+/**
+ *
+ *
+ * @export
+ * @class MessageQueue
+ */
 export class MessageQueue {
   constructor(storageConnector) {
     this.queue = {};
@@ -41,7 +47,7 @@ export class MessageQueue {
  *
  *
  * @export
- * @class MessageQueue
+ * @class QueueItem
  */
 export class QueueItem {
   constructor(messageQueue, storageConnector, messageType) {
