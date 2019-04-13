@@ -36,7 +36,7 @@ class OHVueList extends OHVueBase {
     this.ok = true;
   }
 
-  start(context) {
+  start(context, listMixins, componentMixins) {
     if (!this.ok) return;
 
     this.vue = new Vue({
@@ -52,8 +52,9 @@ class OHVueList extends OHVueBase {
       mounted: function() {
         this.$el.setAttribute('slot', 'app');
       },
+      mixins: listMixins,
       components: {
-        'oh-vue-list-item': this.createComponent(this.itemTemplate.cloneNode(true))
+        'oh-vue-list-item': this.createComponent(this.itemTemplate.cloneNode(true), componentMixins)
       },
       template: this.listTemplate
     }).$mount(this.mountElement);
@@ -63,14 +64,17 @@ class OHVueList extends OHVueBase {
     this.vue.context = context;
   }
 
-  createComponent(template) {
+  createComponent(template, mixins) {
     return {
       data: () => {
         return {
-          item: Object.assign({}, this.listitem) // A copy of the database item entry
+          message: '',
         };
       },
-      props: ['listitem'],
+      mixins,
+      props: {
+        listItem: Object
+      },
       template: template
     };
   }

@@ -9,7 +9,7 @@
     <!-- <nav-ajax-page-load></nav-ajax-page-load> -->
     <header></header>
     <main>
-        <oh-vue-bind model="things"></oh-vue-bind>
+      <!-- <oh-vue-bind model="things"></oh-vue-bind>
         <oh-vue-list>
           <div slot="app"></div>
           <template slot="list">
@@ -20,19 +20,32 @@
           <template slot="item">
               <li>{{ listitem.UID }}</li>
           </template>
-        </oh-vue-list>
-      <!-- <oh-vue-bind model="items" key="FF_Office_Dimmer_Spotlights"></oh-vue-bind>
+        </oh-vue-list> -->
+      <oh-vue-bind model="items" key="FF_Office_Dimmer_Spotlights"></oh-vue-bind>
       <oh-vue-list>
         <div slot="app"></div>
         <template slot="list">
           <ul slot="app">
-              <oh-vue-list-item v-for="item in items" :key="item.name" :listitem="item"></oh-vue-list-item>
+            <p>
+              Total number of items: <span v-format.bold>{{ itemCount }}</span>
+            </p>
+            <oh-vue-list-item v-for="item in items" :key="item.name" :list-item="item"></oh-vue-list-item>
           </ul>
         </template>
         <template slot="item">
-            <li>{{ listitem.name }} : state = {{ listitem.state }}</li>
+          <li v-highlight-on-change="listItem.state">
+            {{ listItem.name }}: state = {{ listItem.state }} (isGroup={{ isGroup }})
+            <select name="newValue" @change="sendCommand($event)" class="form-control">
+              <option value="10">10%</option>
+              <option value="20">20%</option>
+              <option value="30">30%</option>
+              <option value="40">40%</option>
+              <option value="50">50%</option>
+            </select>
+            <!-- <button v-on:click="sendCommand">sendCommand</button> -->
+          </li>
         </template>
-      </oh-vue-list> -->
+      </oh-vue-list>
     </main>
     <footer></footer>
   </body>

@@ -37,6 +37,6 @@ module.exports = {
       css: './dist/css/',
     },
     js_modules: ['./src/js/*/index.js', '!src/js/_*/index.js', '!src/js/single/*.js'],
-    js_single_files: ['src/js/standalone_scripts/**/*.js'],
+    js_single_files: ['src/js/scripts/**/*.js'],
   },
 };

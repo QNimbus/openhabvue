@@ -13,7 +13,7 @@
 
 // External imports
 import { defaultsDeep } from 'lodash-es';
-import { FetchException } from './customExceptions';
+import { FetchException, CustomException } from './customExceptions';
 
 const FETCH_TIMEOUT = 5000;
 
@@ -86,7 +86,7 @@ export function extractFromArray(array, key, objectKey) {
  * @param {*} url
  * @returns
  */
-export async function customFetch(input, init) {
+export async function customFetch(url, init) {
   const controller = new AbortController();
   const headers = new Headers({ 'content-type': 'application/json' });
 
@@ -96,18 +96,19 @@ export async function customFetch(input, init) {
     headers: headers,
     signal: controller.signal,
     validateHttpsCertificates: false,
-    muteHttpExceptions: true
+    muteHttpExceptions: true,
+    timeout: FETCH_TIMEOUT,
   });
 
   setTimeout(() => {
     controller.abort();
-  }, FETCH_TIMEOUT);
+  }, init.timeout);
 
-  const response = await fetch(input, init).catch(error => {
+  const response = await fetch(url, init).catch(error => {
     let customError;
     switch (error.constructor) {
       case DOMException: {
-        customError = new FetchException(`Timeout after ${FETCH_TIMEOUT / 1000}s`);
+        customError = new CustomException(`Timeout after ${init.timeout / 1000}s`);
         break;
       }
       case TypeError: {

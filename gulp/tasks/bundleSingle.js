@@ -12,11 +12,12 @@ let bundleSingleTask = function(gulp, config, plugins, wrapFunc) {
       .pipe(
         plugins.betterRollup(
           {
-            treeshake: true,
+            // treeshake: true,
+            cache: false,
             external: config.external_js,
             plugins: [
-              rollupCommonjs(),
-              rollupPluginVue(),
+              // rollupCommonjs(),
+              // rollupPluginVue(),
               rollupPluginNodeModuleResolve({
                 main: false,
                 browser: false,

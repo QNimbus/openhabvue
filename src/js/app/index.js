@@ -15,6 +15,8 @@
 import { featureDetection_fetch, featureDetection_worker } from '../_helpers';
 import { StorageConnector } from './Store';
 
+console.clear();
+
 featureDetection_fetch();
 featureDetection_worker();
 

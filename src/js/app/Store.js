@@ -38,6 +38,8 @@ export class StorageConnector extends EventTarget {
     // Initialize worker datastore connection
     let msg = { type: 'connect', host: host, port: port };
 
+    this.url = `${host}:${port}`;
+
     this.dispatchEvent(new CustomEvent('connecting', { detail: msg }));
     this.postMessage(msg);
   }

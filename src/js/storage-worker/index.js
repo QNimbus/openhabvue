@@ -121,4 +121,6 @@ class StorageWorker {
   }
 }
 
+console.clear();
+
 const worker = new StorageWorker(self);

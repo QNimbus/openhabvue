@@ -70,8 +70,10 @@ class OHListBind extends BindingBase {
   startBinding(module) {
     this.module = module;
     this.modelAdapter = new module.ModelAdapter(this);
+    this.modelAdapterMixins = this.module.ModelAdapterMixins;
+    this.modelAdapterComponentMixins = this.module.ModelAdapterComponentMixins;
 
-    this.target.start(this.modelAdapter);
+    this.target.start(this.modelAdapter, this.modelAdapterMixins, this.modelAdapterComponentMixins);
 
     store.addEventListener('connectionEstablished', this.datastoreConnected.bind(this));
     store.addEventListener('connecting', this.datastoreConnecting.bind(this));
