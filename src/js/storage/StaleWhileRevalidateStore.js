@@ -427,7 +427,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
       // Get current values from datastore
       dataStoreEntries = store.getAll();
 
-      if (this.isCacheStillValid(uri) || options.forceRefresh) {
+      if (this.isCacheStillValid(uri) && !options.forceRefresh) {
         return dataStoreEntries;
       }
 

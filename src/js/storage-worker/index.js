@@ -96,9 +96,9 @@ class StorageWorker {
   postMessage(message) {
     // Utility method to remove 'window' from cloned object
     function cloneObject(obj) {
-      var clone = {};
+      var clone = [];
       for (var i in obj) {
-        if (typeof obj[i] === 'object' && obj[i] != null) {
+        if (typeof obj[i] === 'object' && obj[i] !== null) {
           if ('' + obj[i] === '[object Window]') {
             delete obj[i];
             continue;
@@ -110,13 +110,13 @@ class StorageWorker {
       return clone;
     }
 
-    // to avoid weird error causing by window object by JSON.stringify() execution.
-    const clone = cloneObject(message);
+    // // To avoid weird error causing by window object by JSON.stringify() execution.
+    // const clone = cloneObject(message);
 
     let port = this.port;
     if (port && typeof port.postMessage === 'function') {
       console.debug(`storage-worker.postMessage: `, message);
-      port.postMessage(JSON.parse(JSON.stringify(clone)));
+      port.postMessage(JSON.parse(JSON.stringify(message)));
     }
   }
 }

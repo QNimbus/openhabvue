@@ -14,6 +14,7 @@
 // Local imports
 import { featureDetection_fetch, featureDetection_worker } from '../_helpers';
 import { StorageConnector } from './Store';
+import { StaleWhileRevalidateStore } from '../storage/StaleWhileRevalidateStore';
 
 console.clear();
 
@@ -25,4 +26,3 @@ const store = new StorageConnector();
 store.connect('rancher.home.besqua.red', 18080);
 
 export { store };
-

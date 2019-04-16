@@ -1,4 +1,8 @@
 import { store } from '../app.js';
+import Vue from 'vue/dist/vue.esm.js';
+
+// External imports
+import { orderBy } from 'lodash-es';
 
 // Local imports
 import { ModelAdapterBase } from './modelbase';
@@ -12,49 +16,113 @@ class ModelAdapter extends ModelAdapterBase {
     this.INDEX = dataStructuresObj['items'].key;
     Object.freeze(this.INDEX);
 
-    this.items = {};
+    this.itemsList = [];
   }
 
-  /**
-   *
-   *
-   * @param {*} items
-   * @returns
-   * @memberof ModelAdapter
-   */
-  process(items) {
-    let processedItems = {};
-    let index = this.INDEX;
-    for (let key in items) {
-      let item = items[key];
-      processedItems[item[index]] = item;
+  process(data) {
+    const processData = data => {
+      switch (data.state) {
+        case 'NULL': {
+          break;
+        }
+        default: {
+          switch (data.type) {
+            case 'Dimmer':
+            case 'Number': {
+              data.state = parseFloat(data.state);
+              break;
+            }
+            default: {
+              break;
+            }
+          }
+        }
+      }
+
+      return data;
+    };
+
+    if (Array.isArray(data)) {
+      return data.map(dataEntry => processData(dataEntry));
+    } else {
+      return processData(data);
     }
-    return processedItems;
   }
 
-  hasKey(key) {
-    return this.items.hasOwnProperty(key);
+  indexOf(id) {
+    let returnValue;
+    return this.itemsList.some((value, index) => {
+      returnValue = index;
+      return value[this.INDEX] === id;
+    })
+      ? returnValue
+      : undefined;
   }
 
-  set(key, value) {
-    this.items[key] = value;
+  add(value) {
+    this.itemsList.push(value);
+  }
+
+  remove(index) {
+    this.itemsList.splice(index, 1);
+  }
+
+  change(index, value) {
+    this.itemsList.splice(index, 1, value);
   }
 
   getAll(options = null) {
-    return store.get('items', null, options).then(items => (this.items = this.process(items)));
+    return store.get('items', null, options).then(items => (this.itemsList = this.process(items)));
   }
 
   get(key, options = null) {
-    return store.get('items', key, options).then(item => (this.items = this.process({ item })));
+    return store.get('items', key, options).then(items => (this.itemsList = this.process(items)));
   }
 }
 
 const listMixins = {
+  data: {
+    sortByProperties: 'name',
+    orders: 'asc',
+    itemFilter: {
+      // type: 'Group',
+      // name: item => item.name.startsWith('VT_MQTT_'),
+      // name: 'VT_MQTT_DSMRReader_ElectricityCurrentlyDelivered',
+    },
+  },
+  methods: {
+    filterItems(itemFilter = {}) {
+      this.itemFilter = itemFilter;
+    },
+    sortItems(sortByProperties = 'name', orders = 'asc') {
+      this.sortByProperties = sortByProperties;
+      this.orders = orders;
+    },
+  },
   computed: {
+    items: function() {
+      const filterFunc = item => {
+        const filter = this.itemFilter;
+        for (var key in filter) {
+          if (typeof filter[key] === 'function') {
+            if (!filter[key](item)) return false;
+          } else {
+            if (item[key] !== filter[key]) return false;
+          }
+        }
+        return true;
+      };
+
+      let items = Object.keys(this.itemFilter).length ? this.itemsList.filter(filterFunc) : this.itemsList;
+      return orderBy(items, this.sortByProperties, this.orders);
+    },
+    isEmpty: function() {
+      return Object.keys(this.items).length === 0;
+    },
     itemCount: function() {
       return Object.keys(this.items).length;
-    }
-  }
+    },
+  },
 };
 
 const listItemMixins = {
@@ -73,13 +141,13 @@ const listItemMixins = {
             this.message = error.toString();
           }
         });
-    }
+    },
   },
   computed: {
     isGroup: function() {
       return this.listItem.type === 'Group';
-    }
-  }
+    },
+  },
 };
 
 const ModelAdapterMixins = [listMixins];

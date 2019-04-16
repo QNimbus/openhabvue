@@ -32,8 +32,8 @@ class OHVueList extends OHVueBase {
       return;
     }
 
-    this.dispatchEvent(new Event('load'));
     this.ok = true;
+    this.dispatchEvent(new Event('load'));
   }
 
   start(context, listMixins, componentMixins) {
@@ -41,12 +41,11 @@ class OHVueList extends OHVueBase {
 
     this.vue = new Vue({
       created: () => {
-        this.store = context;
       },
       data: function() {
         return Object.assign(context, {
           message: '',
-          status: true
+          status: true,
         });
       },
       mounted: function() {
@@ -54,9 +53,9 @@ class OHVueList extends OHVueBase {
       },
       mixins: listMixins,
       components: {
-        'oh-vue-list-item': this.createComponent(this.itemTemplate.cloneNode(true), componentMixins)
+        'oh-vue-list-item': this.createComponent(this.itemTemplate.cloneNode(true), componentMixins),
       },
-      template: this.listTemplate
+      template: this.listTemplate,
     }).$mount(this.mountElement);
   }
 
@@ -73,9 +72,9 @@ class OHVueList extends OHVueBase {
       },
       mixins,
       props: {
-        listItem: Object
+        listItem: Object,
       },
-      template: template
+      template: template,
     };
   }
 }

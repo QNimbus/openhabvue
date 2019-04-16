@@ -14,10 +14,10 @@
 // Local imports
 import { arrayToObject } from '../_helpers';
 
-const dbVersion = 3;
+const dbVersion = 5;
 
 const dataStructures = [
-  // { id: 'bindings', uri: 'rest/bindings', key: 'id', onstart: true, label: 'Bindings' },
+  { id: 'bindings', uri: 'rest/bindings', key: 'id', onstart: true, label: 'Bindings' },
   { id: 'items', uri: 'rest/items?metadata=.*', allowSingleItem: true, key: 'name', onstart: true, label: 'Items' },
   { id: 'things', uri: 'rest/things', key: 'UID', onstart: true, label: 'Things' },
 ];

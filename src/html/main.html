@@ -21,12 +21,15 @@
               <li>{{ listitem.UID }}</li>
           </template>
         </oh-vue-list> -->
-      <oh-vue-bind model="items" key="FF_Office_Dimmer_Spotlights"></oh-vue-bind>
-      <oh-vue-list>
+      <oh-vue-bind model="items" for="ohlist"></oh-vue-bind>
+      <div><p>Hello world!</p></div>
+      <oh-vue-list id="ohlist">
         <div slot="app"></div>
         <template slot="list">
-          <ul slot="app">
+          <ul>
             <p>
+              <button @click="sortItems(['state','name'], ['asc', 'asc'])">sort</button>
+              <button @click="filterItems({ name: item => item.name.startsWith('VT_MQTT_') })">filter</button>
               Total number of items: <span v-format.bold>{{ itemCount }}</span>
             </p>
             <oh-vue-list-item v-for="item in items" :key="item.name" :list-item="item"></oh-vue-list-item>
@@ -35,13 +38,13 @@
         <template slot="item">
           <li v-highlight-on-change="listItem.state">
             {{ listItem.name }}: state = {{ listItem.state }} (isGroup={{ isGroup }})
-            <select name="newValue" @change="sendCommand($event)" class="form-control">
+            <!-- <select name="newValue" @change="sendCommand($event)" class="form-control">
               <option value="10">10%</option>
               <option value="20">20%</option>
               <option value="30">30%</option>
               <option value="40">40%</option>
               <option value="50">50%</option>
-            </select>
+            </select> -->
             <!-- <button v-on:click="sendCommand">sendCommand</button> -->
           </li>
         </template>

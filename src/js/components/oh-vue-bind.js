@@ -11,33 +11,51 @@ class OHListBind extends BindingBase {
   }
 
   /**
-   *
-   * 'connectedCallback' Invoked each time the custom element is appended into a document-connected element
+   * Attempts to bind to a Vue component specified by the 'for' attribute on the element. If none such component
+   * is specified it goes through all the sibling elements until it find a Vue component it can bind to.
+   * If the Vue component has not been loaded yet, it waits for the 'load' event and retries the databinding.
    *
    * See: https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#High-level_view
    * @memberof OHListBind
    */
   connectedCallback() {
     const bindingForID = this.getAttribute('for');
+    const modelName = this.getAttribute('model');
 
     this.key = this.getAttribute('key');
     this.target = document.getElementById(bindingForID);
 
+    if (!modelName) {
+      console.warn(`No datamodel specified. Use 'model' attribute on <${this.tagName}>`);
+      return;
+    }
+
     if (!this.target) {
-      if (!this.nextElementSibling) {
-        console.warn(`oh-vue-bind: Unable to find target element ('for' property or nextElementSibling)`);
+      console.debug(`No 'for' attribute specified on <${this.tagName}>, finding next Vue component`);
+      this.target = this;
+      while ((this.target = this.target.nextElementSibling)) {
+        if (this.target.hasOwnProperty('vue')) {
+          console.debug(`Attempting to bind to next Vue component: <${this.target.tagName}>`);
+          break;
+        }
+      }
+
+      if (!this.target) {
+        console.warn(`Unable to bind to vue component`);
         return;
       } else {
-        this.target = this.nextElementSibling;
+        console.debug(`<${this.tagName}> bound to <${this.target.tagName}>`);
       }
     }
 
+    // If the target Vue component has not been loaded yet, await the 'load' event fired from the component
     if (!this.target.ok) {
+      console.debug(`Waiting for <${this.target.tagName}> to become ready...`);
       this.target.addEventListener('load', this.connectedCallback.bind(this), { once: true, passive: true });
       return;
     }
 
-    const modelName = this.getAttribute('model');
+    // Load the datamodel and start the datamodel binding
     import(`./datamodels/${modelName}.js`)
       .then(this.startBinding.bind(this))
       .catch(error => {
@@ -113,18 +131,46 @@ class OHListBind extends BindingBase {
     let id = entry[this.modelAdapter.INDEX];
 
     // Only change pre-existing entries
-    if (this.modelAdapter.hasKey(id)) {
-      this.modelAdapter.set(id, entry);
+    let index = this.modelAdapter.indexOf(id);
+    if (index) {
+      entry = this.modelAdapter.process(entry);
+      this.modelAdapter.change(index, entry);
     }
   }
 
-  getValue(fieldName) {
-    return this.modelAdapter[fieldName];
+  storeEntryAdded(event) {
+    if (!this.modelAdapter) return;
+
+    let entry = event.value;
+    let id = entry[this.modelAdapter.INDEX];
+
+    // Only add new (non-existing) entries
+    let index = this.modelAdapter.indexOf(id);
+    if (index === undefined) {
+      entry = this.modelAdapter.process(entry);
+      this.modelAdapter.add(entry);
+    }
   }
 
-  setValue(fieldName, value) {
-    this.modelAdapter[fieldName] = value;
+  storeEntryRemoved(event) {
+    if (!this.modelAdapter) return;
+
+    let id = event.value[this.modelAdapter.INDEX];
+
+    // Only remove pre-existing entries
+    let index = this.modelAdapter.indexOf(id);
+    if (index) {
+      this.modelAdapter.remove(index);
+    }
   }
+
+  // getValue(fieldName) {
+  //   return this.modelAdapter[fieldName];
+  // }
+
+  // setValue(fieldName, value) {
+  //   this.modelAdapter[fieldName] = value;
+  // }
 }
 
 customElements.define('oh-vue-bind', OHListBind);
