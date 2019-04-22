@@ -211,7 +211,7 @@ export class StaleWhileRevalidateStore extends EventTarget {
   sseError(error) {
     if (this.eventSource.readyState !== 1) {
       this.connected = false;
-      console.warn(`Connection lost to http://${this.host}:${this.port}`);
+      console.warn(`Connection lost to http://${this.host}:${this.port}`, error);
       this.dispatchEvent(new CustomEvent('connectionLost', { detail: { type: 404, message: error.toString() } }));
       this.eventSource.close();
     } else {

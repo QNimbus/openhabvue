@@ -9,6 +9,12 @@
     <!-- <nav-ajax-page-load></nav-ajax-page-load> -->
     <header></header>
     <main>
+      <div id="appz">
+        <el-button @click="visible = true">Button</el-button>
+        <el-dialog :visible.sync="visible" title="Hello world">
+          <p>Try Element</p>
+        </el-dialog>
+      </div>
       <!-- <oh-vue-bind model="things"></oh-vue-bind>
         <oh-vue-list>
           <div slot="app"></div>
@@ -52,4 +58,12 @@
     </main>
     <footer></footer>
   </body>
+  <script>
+      new Vue({
+        el: '#appz',
+        data: function() {
+          return { visible: false }
+        }
+      })
+    </script>
 </html>
